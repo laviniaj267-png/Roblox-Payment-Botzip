@@ -29,7 +29,8 @@ import { startVerificationPolling } from "./ticketTracker.js";
 import { getProductById, getProducts } from "./productStore.js";
 import { setSession, updateSession, getSession, clearSession } from "./userSessions.js";
 import { getSetupSession, updateSetupSession, clearSetupSession } from "./setupSession.js";
-import { registerTicket, generateOrderId } from "./activeTickets.js";
+import { registerTicket, hasActiveTicket, generateOrderId } from "./activeTickets.js";
+import { getLinkedAccount } from "./linkedAccounts.js";
 import { pendingWhitelists } from "./whitelistTracker.js";
 import { getGuildConfig } from "./serverConfig.js";
 import { isUniversalUser } from "./universalUsers.js";
@@ -211,6 +212,13 @@ async function handleButton(interaction: ButtonInteraction<CacheType>): Promise<
       return;
     }
 
+    // Prevent duplicate open ticket for same user + product
+    const existingTicketChannel = hasActiveTicket(interaction.user.id, session.productId);
+    if (existingTicketChannel) {
+      await interaction.editReply({ content: `❌ You already have an open ticket for **${product.name}**: <#${existingTicketChannel}>. Complete or wait for it to close first.`, embeds: [], components: [] });
+      return;
+    }
+
     const { robloxUser } = session;
 
     const guild = interaction.guild;
@@ -251,7 +259,7 @@ async function handleButton(interaction: ButtonInteraction<CacheType>): Promise<
     }
 
     const orderId = generateOrderId();
-    registerTicket(robloxUser.id, ticketChannel.id);
+    registerTicket(interaction.user.id, session.productId, ticketChannel.id);
 
     await interaction.editReply({ content: `✅ Your ticket has been created: <#${ticketChannel.id}>`, embeds: [], components: [] });
 
@@ -300,7 +308,7 @@ async function handleButton(interaction: ButtonInteraction<CacheType>): Promise<
           const member = await guild.members.fetch(discordUserId);
           await member.roles.add(wsaUserRoleId, `Whitelisted by ${interaction.user.tag} — ${orderId}`);
         } catch (err) {
-          logger.warn({ err }, "Could not assign WSA User role");
+          logger.warn({ err }, "Could not assign whitelist role");
         }
       }
 
@@ -375,6 +383,28 @@ async function handleModal(interaction: ModalSubmitInteraction<CacheType>): Prom
   }
 
   const username = interaction.fields.getTextInputValue("roblox_username").trim();
+
+  // Check linked account — enforce strict account binding
+  const linked = getLinkedAccount(interaction.user.id);
+  if (linked) {
+    if (username.toLowerCase() !== linked.robloxName.toLowerCase()) {
+      await interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setTitle("⛔ Account Already Linked")
+            .setDescription(
+              `Your Discord account is permanently linked to Roblox account **${linked.robloxName}**.\n\n` +
+              `You must use that account to make purchases.\n` +
+              `If you believe this is an error, contact a staff member.`
+            )
+            .setColor(0xed4245)
+            .setTimestamp(),
+        ],
+      });
+      return;
+    }
+  }
+
   const robloxUser = await getRobloxUserByUsername(username);
 
   if (!robloxUser) {

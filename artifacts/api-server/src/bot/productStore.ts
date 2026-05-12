@@ -8,6 +8,7 @@ export interface Product {
   name: string;
   gamePassId: string;
   description: string;
+  price?: number;
 }
 
 const DATA_DIR = join(process.cwd(), "data");
@@ -81,6 +82,7 @@ export async function addProduct(
     name,
     gamePassId,
     description: description ?? gpInfo?.name ?? name,
+    price: gpInfo?.price ?? 0,
   };
 
   products.push(product);

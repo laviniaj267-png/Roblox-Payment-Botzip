@@ -4,5 +4,11 @@
     "name": "Semi Tp v1",
     "gamePassId": "1832022236",
     "description": "Instant Steal and teleport"
+  },
+  {
+    "id": "instant_steal_v1_1778608252991",
+    "name": "Instant Steal V1",
+    "gamePassId": "1837293141",
+    "description": "Automatically steal brainrots with flash teleporting"
   }
 ]

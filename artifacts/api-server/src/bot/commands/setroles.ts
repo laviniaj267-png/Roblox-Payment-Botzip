@@ -99,3 +99,32 @@ export const blacklistRoleCommand = {
     });
   },
 };
+
+export const robloxVerifiedRoleCommand = {
+  data: new SlashCommandBuilder()
+    .setName("verifiedrole")
+    .setDescription("Set the role automatically assigned when a purchase is verified on Roblox")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addRoleOption((opt) =>
+      opt.setName("role").setDescription("The Roblox Verified role").setRequired(true)
+    ),
+
+  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+    if (!canConfigure(interaction)) {
+      await interaction.reply({ content: "❌ You don't have permission to use this.", ephemeral: true });
+      return;
+    }
+    const role = interaction.options.getRole("role", true);
+    setGuildConfig(interaction.guildId!, { robloxVerifiedRoleId: role.id });
+    await interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("✅ Roblox Verified Role Set")
+          .setDescription(`<@&${role.id}> will be assigned automatically to users as soon as their Roblox purchase is verified — no staff action needed.`)
+          .setColor(0x57f287)
+          .setTimestamp(),
+      ],
+      ephemeral: true,
+    });
+  },
+};

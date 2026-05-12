@@ -4,9 +4,11 @@ import { logger } from "../lib/logger.js";
 
 export interface GuildConfig {
   customMessage?: string;
-  staffRoleId?: string;      // role that manages whitelisting
-  wsaUserRoleId?: string;    // role assigned on whitelist approval
-  blacklistRoleId?: string;  // role that blocks users from purchasing
+  staffRoleId?: string;
+  wsaUserRoleId?: string;
+  blacklistRoleId?: string;
+  logsChannelId?: string;
+  robloxVerifiedRoleId?: string;
 }
 
 const DATA_DIR = join(process.cwd(), "data");

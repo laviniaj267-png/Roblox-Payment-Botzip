@@ -11,6 +11,7 @@ import { handleInteraction } from "./interactionHandler.js";
 import { handlePrefixCommand } from "./prefixCommands.js";
 import { loadProducts } from "./productStore.js";
 import { loadServerConfig } from "./serverConfig.js";
+import { loadLinkedAccounts } from "./linkedAccounts.js";
 import { setupCommand } from "./commands/setup.js";
 import { addCommand } from "./commands/add.js";
 import { removeCommand } from "./commands/remove.js";
@@ -18,8 +19,9 @@ import { productsCommand } from "./commands/products.js";
 import { closeCommand } from "./commands/close.js";
 import { configCommand } from "./commands/config.js";
 import { inviteCommand } from "./commands/invite.js";
-import { staffCommand, whitelistRoleCommand, blacklistRoleCommand } from "./commands/setroles.js";
+import { staffCommand, whitelistRoleCommand, blacklistRoleCommand, robloxVerifiedRoleCommand } from "./commands/setroles.js";
 import { setStatusCommand } from "./commands/setstatus.js";
+import { setLogsCommand } from "./commands/setlogs.js";
 import { logger } from "../lib/logger.js";
 
 const allCommands = [
@@ -33,7 +35,9 @@ const allCommands = [
   staffCommand,
   whitelistRoleCommand,
   blacklistRoleCommand,
+  robloxVerifiedRoleCommand,
   setStatusCommand,
+  setLogsCommand,
 ];
 
 const commandMap = new Map(allCommands.map((c) => [c.data.name, c]));
@@ -42,6 +46,7 @@ export async function startBot(): Promise<void> {
   validateConfig();
   loadProducts();
   loadServerConfig();
+  loadLinkedAccounts();
 
   const client = new Client({
     intents: [

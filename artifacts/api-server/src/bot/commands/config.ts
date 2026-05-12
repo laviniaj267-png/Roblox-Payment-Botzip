@@ -25,6 +25,8 @@ export const configCommand = {
       `**Staff Role:** ${guildCfg.staffRoleId ? `<@&${guildCfg.staffRoleId}>` : "*(not set — use /stuff)*"}`,
       `**Whitelist Role:** ${guildCfg.wsaUserRoleId ? `<@&${guildCfg.wsaUserRoleId}>` : "*(not set — use /whitelist)*"}`,
       `**Blacklist Role:** ${guildCfg.blacklistRoleId ? `<@&${guildCfg.blacklistRoleId}>` : "*(not set — use /blacklist)*"}`,
+      `**Roblox Verified Role:** ${guildCfg.robloxVerifiedRoleId ? `<@&${guildCfg.robloxVerifiedRoleId}>` : "*(not set — use /verifiedrole)*"}`,
+      `**Logs Channel:** ${guildCfg.logsChannelId ? `<#${guildCfg.logsChannelId}>` : "*(not set — use /setlogs)*"}`,
     ].join("\n");
 
     const lines = [

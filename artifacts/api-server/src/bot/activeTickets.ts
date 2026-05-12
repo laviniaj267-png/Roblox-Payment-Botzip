@@ -1,27 +1,32 @@
 import { randomBytes } from "node:crypto";
 
 /**
- * Tracks active open tickets by Roblox user ID.
- * Prevents the same Roblox account from having multiple simultaneous tickets.
+ * Tracks active open tickets by discordUserId + productId.
+ * Allows the same user to buy multiple different products simultaneously,
+ * but prevents duplicate open tickets for the exact same user + product combo.
  */
-const byRobloxUserId = new Map<number, string>(); // robloxUserId → channelId
+const activeTickets = new Map<string, string>(); // `${discordId}_${productId}` → channelId
 
-export function registerTicket(robloxUserId: number, channelId: string): void {
-  byRobloxUserId.set(robloxUserId, channelId);
+function key(discordUserId: string, productId: string): string {
+  return `${discordUserId}_${productId}`;
 }
 
-export function hasActiveTicket(robloxUserId: number): string | undefined {
-  return byRobloxUserId.get(robloxUserId);
+export function registerTicket(discordUserId: string, productId: string, channelId: string): void {
+  activeTickets.set(key(discordUserId, productId), channelId);
 }
 
-export function releaseTicket(robloxUserId: number): void {
-  byRobloxUserId.delete(robloxUserId);
+export function hasActiveTicket(discordUserId: string, productId: string): string | undefined {
+  return activeTickets.get(key(discordUserId, productId));
+}
+
+export function releaseTicket(discordUserId: string, productId: string): void {
+  activeTickets.delete(key(discordUserId, productId));
 }
 
 export function generateOrderId(): string {
-  return "WSA-" + randomBytes(4).toString("hex").toUpperCase();
+  return "NEXXI-" + randomBytes(4).toString("hex").toUpperCase();
 }
 
 export function activeTicketCount(): number {
-  return byRobloxUserId.size;
+  return activeTickets.size;
 }

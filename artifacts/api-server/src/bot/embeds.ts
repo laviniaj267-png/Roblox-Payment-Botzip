@@ -25,7 +25,7 @@ export function buildPurchasePanel(
     .setTitle("🛒 Purchase a Product")
     .setDescription(`${customMessage}\n\nSelect a product from the dropdown below to begin.`)
     .setColor(BRAND_COLOR)
-    .setFooter({ text: "Automated Roblox Purchase Verification" })
+    .setFooter({ text: "NEXXI HUB • Automated Purchase Verification" })
     .setTimestamp();
 
   const select = new StringSelectMenuBuilder()
@@ -37,7 +37,9 @@ export function buildPurchasePanel(
           .setLabel(p.name)
           .setValue(p.id)
           .setEmoji("🎮");
-        if (p.description) opt.setDescription(p.description.slice(0, 100));
+        const priceStr = p.price != null && p.price > 0 ? `${p.price} Robux` : null;
+        const desc = [priceStr, p.description].filter(Boolean).join(" · ").slice(0, 100);
+        if (desc) opt.setDescription(desc);
         return opt;
       })
     );
@@ -157,7 +159,7 @@ export function buildOrderConfirmedDmEmbed(
     )
     .setColor(SUCCESS_COLOR)
     .setThumbnail(robloxUser.avatarUrl)
-    .setFooter({ text: `WSA HUB • ${orderId}` })
+    .setFooter({ text: `NEXXI HUB • ${orderId}` })
     .setTimestamp();
 }
 
@@ -179,7 +181,7 @@ export function buildWhitelistApprovedDmEmbed(
     )
     .setColor(SUCCESS_COLOR)
     .setThumbnail(robloxUser.avatarUrl)
-    .setFooter({ text: `WSA HUB • ${orderId}` })
+    .setFooter({ text: `NEXXI HUB • ${orderId}` })
     .setTimestamp();
 }
 
@@ -201,7 +203,7 @@ export function buildWhitelistDeniedDmEmbed(
     )
     .setColor(ERROR_COLOR)
     .setThumbnail(robloxUser.avatarUrl)
-    .setFooter({ text: `WSA HUB • ${orderId}` })
+    .setFooter({ text: `NEXXI HUB • ${orderId}` })
     .setTimestamp();
 }
 
