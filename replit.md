@@ -58,6 +58,32 @@ A Discord bot that automates Roblox game pass purchase verification through tick
 - Slash commands registered globally take up to 1 hour to appear; set `DISCORD_GUILD_ID` for instant registration
 - The Roblox inventory API is public — no Roblox cookie needed for ownership checks
 
+## Hosting on Railway / Render
+
+The repo includes `Dockerfile`, `railway.json`, and `render.yaml` at the project root for one-click deployment of the **bot + API server only** (the React dashboard is Replit-hosted or built separately).
+
+### Railway
+1. Push this repo to GitHub
+2. Create a new Railway project → Deploy from GitHub → select this repo
+3. Railway detects `railway.json` automatically and uses the `Dockerfile`
+4. Set these environment variables in Railway:
+   - `DISCORD_TOKEN` — your bot token
+   - `DISCORD_GUILD_ID` — your guild ID (for instant slash command registration)
+   - `DISCORD_TICKET_CATEGORY_ID` — (optional) category channel ID for tickets
+   - `GAMEPASS_MAIN_HUB` — (optional) default game pass ID to seed on startup
+5. Railway will expose port 8080; health check path is `/api/healthz`
+
+### Render
+1. Push this repo to GitHub
+2. Create a new Render Web Service → connect your GitHub repo
+3. Render detects `render.yaml` automatically
+4. Fill in the secret environment variables (marked `sync: false`) in the Render dashboard
+5. Health check path is `/api/healthz`
+
+### Important notes
+- The bot stores products and server config in `data/` — this is in-memory/disk storage. On Railway/Render, the data directory is ephemeral; restart the service and re-run `/setup` and `/add` to restore.
+- The web dashboard (`artifacts/dashboard`) is a React SPA — deploy it separately as a static site (Vercel, Netlify, Cloudflare Pages) or serve it from the Express app.
+
 ## User preferences
 
 _Populate as you build — explicit user instructions worth remembering across sessions._

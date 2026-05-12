@@ -21,3 +21,7 @@ export function releaseTicket(robloxUserId: number): void {
 export function generateOrderId(): string {
   return "WSA-" + randomBytes(4).toString("hex").toUpperCase();
 }
+
+export function activeTicketCount(): number {
+  return byRobloxUserId.size;
+}
