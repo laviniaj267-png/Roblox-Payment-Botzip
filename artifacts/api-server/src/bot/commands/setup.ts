@@ -2,16 +2,22 @@ import {
   type ChatInputCommandInteraction,
   SlashCommandBuilder,
   PermissionFlagsBits,
-  type TextChannel,
+  ActionRowBuilder,
+  ChannelSelectMenuBuilder,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ChannelType,
+  EmbedBuilder,
 } from "discord.js";
-import { buildPurchasePanel, buildErrorEmbed } from "../embeds.js";
 import { getProducts } from "../productStore.js";
-import { setGuildConfig } from "../serverConfig.js";
+import { initSetupSession } from "../setupSession.js";
 
 export const setupCommand = {
   data: new SlashCommandBuilder()
     .setName("setup")
-    .setDescription("Post the purchase panel in this channel")
+    .setDescription("Post the purchase panel in a channel of your choice")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption((opt) =>
       opt
@@ -22,7 +28,7 @@ export const setupCommand = {
     ),
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 });
 
     const customMessage = interaction.options.getString("message", true);
     const products = getProducts();
@@ -30,29 +36,62 @@ export const setupCommand = {
     if (products.length === 0) {
       await interaction.editReply({
         embeds: [
-          buildErrorEmbed(
-            "No products configured yet.\n\nUse `/add name:<name> gamepassid:<id>` to add a product first."
-          ),
+          new EmbedBuilder()
+            .setTitle("❌ No Products")
+            .setDescription("No products configured yet.\n\nUse `/add name:<name> gamepassid:<id>` to add a product first.")
+            .setColor(0xed4245),
         ],
       });
       return;
     }
 
-    if (interaction.guildId) {
-      setGuildConfig(interaction.guildId, { customMessage });
-    }
+    initSetupSession(interaction.user.id, customMessage);
 
-    const channel = interaction.channel ?? await interaction.client.channels.fetch(interaction.channelId).catch(() => null);
-    if (!channel || !channel.isTextBased()) {
-      await interaction.editReply({ embeds: [buildErrorEmbed("Could not resolve the channel. Make sure I have **View Channel** permission here.")] });
-      return;
-    }
+    const channelRow = new ActionRowBuilder<ChannelSelectMenuBuilder>().addComponents(
+      new ChannelSelectMenuBuilder()
+        .setCustomId("setup_channel_select")
+        .setPlaceholder("1️⃣  Pick the channel to post in...")
+        .addChannelTypes(ChannelType.GuildText)
+    );
 
-    const { embeds, components } = buildPurchasePanel(customMessage, products);
-    await (channel as TextChannel).send({ embeds, components });
+    const productRow = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId("setup_products_select")
+        .setPlaceholder("2️⃣  Choose which products to show (all by default)...")
+        .setMinValues(1)
+        .setMaxValues(products.length)
+        .addOptions(
+          products.map((p) => {
+            const opt = new StringSelectMenuOptionBuilder()
+              .setLabel(p.name)
+              .setValue(p.id)
+              .setEmoji("🎮")
+              .setDefault(true);
+            if (p.description) opt.setDescription(p.description.slice(0, 100));
+            return opt;
+          })
+        )
+    );
+
+    const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId("setup_send_panel")
+        .setLabel("Send Panel")
+        .setStyle(ButtonStyle.Success)
+        .setEmoji("🚀")
+    );
 
     await interaction.editReply({
-      content: `✅ Purchase panel posted with **${products.length}** product(s).`,
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("🛠️ Panel Builder")
+          .setDescription(
+            "Choose where to post the purchase panel and which products to include, then hit **Send Panel**."
+          )
+          .addFields({ name: "Message preview", value: `> ${customMessage.slice(0, 200)}` })
+          .setColor(0x5865f2),
+      ],
+      components: [channelRow, productRow, buttonRow],
     });
   },
 };

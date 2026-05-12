@@ -3,6 +3,7 @@ import {
   type ButtonInteraction,
   type ModalSubmitInteraction,
   type StringSelectMenuInteraction,
+  type ChannelSelectMenuInteraction,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
@@ -20,12 +21,14 @@ import {
   buildPurchaseInstructionsEmbed,
   buildUserNotFoundEmbed,
   buildErrorEmbed,
+  buildPurchasePanel,
   buildWhitelistApprovedDmEmbed,
   buildWhitelistDeniedDmEmbed,
 } from "./embeds.js";
 import { startVerificationPolling } from "./ticketTracker.js";
-import { getProductById } from "./productStore.js";
+import { getProductById, getProducts } from "./productStore.js";
 import { setSession, updateSession, getSession, clearSession } from "./userSessions.js";
+import { getSetupSession, updateSetupSession, clearSetupSession } from "./setupSession.js";
 import { registerTicket, generateOrderId } from "./activeTickets.js";
 import { pendingWhitelists } from "./whitelistTracker.js";
 import { getGuildConfig } from "./serverConfig.js";
@@ -35,7 +38,8 @@ import { logger } from "../lib/logger.js";
 
 export async function handleInteraction(interaction: Interaction): Promise<void> {
   try {
-    if (interaction.isStringSelectMenu()) await handleSelectMenu(interaction);
+    if (interaction.isChannelSelectMenu()) await handleChannelSelect(interaction);
+    else if (interaction.isStringSelectMenu()) await handleSelectMenu(interaction);
     else if (interaction.isButton()) await handleButton(interaction);
     else if (interaction.isModalSubmit()) await handleModal(interaction);
   } catch (err) {
@@ -65,9 +69,26 @@ function isStaff(member: GuildMember | null, userId: string, guildId: string): b
   return staffRoleId ? member.roles.cache.has(staffRoleId) : false;
 }
 
-// ── Select menu ───────────────────────────────────────────────────────────────
+// ── Channel select (setup flow) ───────────────────────────────────────────────
+
+async function handleChannelSelect(interaction: ChannelSelectMenuInteraction<CacheType>): Promise<void> {
+  if (interaction.customId !== "setup_channel_select") return;
+  const channelId = interaction.values[0];
+  if (!channelId) return;
+  updateSetupSession(interaction.user.id, { channelId });
+  await interaction.deferUpdate();
+}
+
+// ── Select menus ──────────────────────────────────────────────────────────────
 
 async function handleSelectMenu(interaction: StringSelectMenuInteraction<CacheType>): Promise<void> {
+  // ── Setup product picker ──────────────────────────────────────────────────
+  if (interaction.customId === "setup_products_select") {
+    updateSetupSession(interaction.user.id, { productIds: interaction.values });
+    await interaction.deferUpdate();
+    return;
+  }
+
   if (interaction.customId !== "product_select") return;
 
   const productId = interaction.values[0];
@@ -105,6 +126,72 @@ async function handleButton(interaction: ButtonInteraction<CacheType>): Promise<
 
   if (customId === "retry_username" || customId === "cancel_user") {
     await interaction.showModal(buildUsernameModal());
+    return;
+  }
+
+  // ── Setup: send panel ─────────────────────────────────────────────────────
+  if (customId === "setup_send_panel") {
+    await interaction.deferUpdate();
+
+    const session = getSetupSession(interaction.user.id);
+    if (!session) {
+      await interaction.editReply({ content: "❌ Session expired. Run `/setup` again.", embeds: [], components: [] });
+      return;
+    }
+
+    if (!session.channelId) {
+      await interaction.editReply({ content: "❌ Please select a channel first.", embeds: [], components: [] });
+      return;
+    }
+
+    const allProducts = getProducts();
+    const selectedProducts = session.productIds.length > 0
+      ? allProducts.filter((p) => session.productIds.includes(p.id))
+      : allProducts;
+
+    if (selectedProducts.length === 0) {
+      await interaction.editReply({ content: "❌ No matching products found.", embeds: [], components: [] });
+      return;
+    }
+
+    let targetChannel: TextChannel;
+    try {
+      const fetched = await interaction.client.channels.fetch(session.channelId);
+      if (!fetched || fetched.type !== ChannelType.GuildText) {
+        await interaction.editReply({ content: "❌ That channel isn't a text channel.", embeds: [], components: [] });
+        return;
+      }
+      targetChannel = fetched as TextChannel;
+    } catch {
+      await interaction.editReply({ content: "❌ Could not find that channel. Make sure I have **View Channel** permission there.", embeds: [], components: [] });
+      return;
+    }
+
+    try {
+      const { embeds, components } = buildPurchasePanel(session.message, selectedProducts);
+      await targetChannel.send({ embeds, components });
+    } catch (err: unknown) {
+      const code = (err as { code?: number }).code;
+      if (code === 50001 || code === 50013) {
+        await interaction.editReply({ content: `❌ Missing permissions in <#${session.channelId}>. Make sure I have **View Channel** and **Send Messages** there.`, embeds: [], components: [] });
+      } else {
+        await interaction.editReply({ content: "❌ Failed to send the panel. Check the bot's permissions in that channel.", embeds: [], components: [] });
+      }
+      return;
+    }
+
+    clearSetupSession(interaction.user.id);
+
+    if (interaction.guildId) {
+      const { setGuildConfig } = await import("./serverConfig.js");
+      setGuildConfig(interaction.guildId, { customMessage: session.message });
+    }
+
+    await interaction.editReply({
+      content: `✅ Purchase panel posted in <#${session.channelId}> with **${selectedProducts.length}** product(s).`,
+      embeds: [],
+      components: [],
+    });
     return;
   }
 
