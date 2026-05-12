@@ -1,45 +1,43 @@
 import type { TextChannel, Client } from "discord.js";
-import {
-  checkGamePassOwnership,
-} from "./roblox.js";
-import {
-  buildVerificationSuccessEmbed,
-} from "./embeds.js";
-import { config } from "./config.js";
+import { checkGamePassOwnership } from "./roblox.js";
+import { buildVerificationSuccessEmbed } from "./embeds.js";
 import type { RobloxUser } from "./roblox.js";
 import { logger } from "../lib/logger.js";
+
+const MAX_ATTEMPTS = 40; // ~20 minutes at 30s intervals
+const POLL_INTERVAL_MS = 30_000;
 
 interface PendingTicket {
   robloxUser: RobloxUser;
   channel: TextChannel;
   discordUserId: string;
+  gamePassId: string;
+  gamePassName: string;
   intervalId: ReturnType<typeof setInterval>;
-  attempts: number;
 }
-
-const MAX_ATTEMPTS = 40; // ~20 minutes at 30s intervals
-const POLL_INTERVAL_MS = 30_000;
 
 const pendingTickets = new Map<string, PendingTicket>();
 
 export function startVerificationPolling(
-  client: Client,
+  _client: Client,
   channel: TextChannel,
   robloxUser: RobloxUser,
-  discordUserId: string
+  discordUserId: string,
+  gamePassId: string,
+  gamePassName: string
 ): void {
   const key = `${channel.id}_${robloxUser.id}`;
 
-  if (pendingTickets.has(key)) {
-    clearInterval(pendingTickets.get(key)!.intervalId);
-  }
+  // Clear any existing poll for this ticket
+  const existing = pendingTickets.get(key);
+  if (existing) clearInterval(existing.intervalId);
 
   let attempts = 0;
 
   const intervalId = setInterval(async () => {
     attempts++;
     try {
-      const owns = await checkGamePassOwnership(robloxUser.id, config.robloxGamePassId);
+      const owns = await checkGamePassOwnership(robloxUser.id, gamePassId);
 
       if (owns) {
         clearInterval(intervalId);
@@ -47,20 +45,20 @@ export function startVerificationPolling(
 
         await channel.send({
           content: `<@${discordUserId}>`,
-          embeds: [buildVerificationSuccessEmbed(robloxUser, "Game Pass")],
+          embeds: [buildVerificationSuccessEmbed(discordUserId, robloxUser, gamePassName)],
         });
 
-        // Archive ticket channel after 60s
+        // Auto-close ticket after 60s
         setTimeout(async () => {
           try {
-            await channel.send("✅ This ticket will be closed in 10 seconds.");
-            setTimeout(() => channel.delete("Purchase verified - auto-closing").catch(() => {}), 10_000);
+            await channel.send("✅ This ticket will close in 10 seconds.");
+            setTimeout(() => channel.delete("Purchase verified — auto-closing").catch(() => {}), 10_000);
           } catch {
-            // Channel may already be deleted
+            // Channel may already be gone
           }
         }, 60_000);
 
-        logger.info({ userId: robloxUser.id, channelId: channel.id }, "Game pass verified");
+        logger.info({ robloxUserId: robloxUser.id, channelId: channel.id }, "Game pass ownership verified");
         return;
       }
 
@@ -69,7 +67,7 @@ export function startVerificationPolling(
         pendingTickets.delete(key);
         await channel.send(
           `⏰ <@${discordUserId}> Verification timed out after 20 minutes. ` +
-          `If you purchased the game pass, please contact support.`
+            `If you did purchase the game pass, please contact a staff member.`
         );
       }
     } catch (err) {
@@ -81,7 +79,8 @@ export function startVerificationPolling(
     robloxUser,
     channel,
     discordUserId,
+    gamePassId,
+    gamePassName,
     intervalId,
-    attempts,
   });
 }

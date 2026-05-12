@@ -1,45 +1,63 @@
-# [Project name]
+# WSA HUB — Discord Roblox Purchase Bot
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A Discord bot that automates Roblox game pass purchase verification through ticket channels.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the API server + Discord bot (port 5000)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+
+## Required Secrets
+
+- `DISCORD_TOKEN` — Discord bot token (set in Replit Secrets)
+
+## Optional Environment Variables
+
+- `DISCORD_GUILD_ID` — Guild ID for instant slash command registration (else global, ~1h delay)
+- `DISCORD_TICKET_CATEGORY_ID` — Category ID to place ticket channels under
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
 - API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Discord: discord.js v14
+- Build: esbuild (ESM bundle)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/api-server/src/bot/` — all Discord bot logic
+  - `index.ts` — bot client init & event routing
+  - `commands/setup.ts` — `/setup` slash command
+  - `interactionHandler.ts` — button & modal handlers
+  - `embeds.ts` — all embed builders
+  - `roblox.ts` — Roblox API calls
+  - `ticketTracker.ts` — game pass ownership polling
+  - `guildConfig.ts` — per-guild game pass ID store
 
-## Architecture decisions
+## Bot Flow
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+1. Admin runs `/setup gamepassid:<id>` → posts purchase panel embed
+2. User clicks **Purchase** → modal asks for Roblox username
+3. Bot fetches avatar → shows confirm embed with Yes/No buttons
+4. User confirms → bot creates `ticket-<username>` channel (private, user + bot only)
+5. Bot posts instructions with game pass link in the ticket channel
+6. Bot polls Roblox API every 30s (up to 20 min) to verify ownership
+7. On verified → success embed sent, ticket auto-closes after 60s
 
-## Product
+## Discord Bot Setup
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Add bot to your server with scopes: `bot`, `applications.commands`
+3. Bot permissions needed: `Manage Channels`, `Send Messages`, `Read Message History`, `View Channels`
+4. Run `/setup gamepassid:<your_pass_id>` in the channel where you want the purchase panel
+
+## Gotchas
+
+- Game pass ID is stored in memory per guild — if the server restarts, run `/setup` again to restore it
+- Slash commands registered globally take up to 1 hour to appear; set `DISCORD_GUILD_ID` for instant registration
+- The Roblox inventory API is public — no Roblox cookie needed for ownership checks
 
 ## User preferences
 
 _Populate as you build — explicit user instructions worth remembering across sessions._
-
-## Gotchas
-
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
