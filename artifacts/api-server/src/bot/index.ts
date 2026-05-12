@@ -80,7 +80,21 @@ export async function startBot(): Promise<void> {
     if (interaction.isChatInputCommand()) {
       const command = commandMap.get(interaction.commandName);
       if (command) {
-        await command.execute(interaction as ChatInputCommandInteraction);
+        try {
+          await command.execute(interaction as ChatInputCommandInteraction);
+        } catch (err) {
+          logger.error({ err, command: interaction.commandName }, "Slash command threw an unhandled error");
+          try {
+            const payload = { content: "❌ An unexpected error occurred. Please try again.", ephemeral: true };
+            if (interaction.deferred || interaction.replied) {
+              await interaction.editReply(payload);
+            } else {
+              await interaction.reply(payload);
+            }
+          } catch {
+            // interaction already expired or reply failed
+          }
+        }
         return;
       }
     }

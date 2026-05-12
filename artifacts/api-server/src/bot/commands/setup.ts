@@ -42,9 +42,14 @@ export const setupCommand = {
       setGuildConfig(interaction.guildId, { customMessage });
     }
 
-    const channel = interaction.channel as TextChannel;
+    const channel = interaction.channel ?? await interaction.client.channels.fetch(interaction.channelId).catch(() => null);
+    if (!channel || !channel.isTextBased()) {
+      await interaction.editReply({ embeds: [buildErrorEmbed("Could not resolve the channel. Make sure I have **View Channel** permission here.")] });
+      return;
+    }
+
     const { embeds, components } = buildPurchasePanel(customMessage, products);
-    await channel.send({ embeds, components });
+    await (channel as TextChannel).send({ embeds, components });
 
     await interaction.editReply({
       content: `✅ Purchase panel posted with **${products.length}** product(s).`,
