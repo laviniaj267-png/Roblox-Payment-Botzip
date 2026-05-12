@@ -2,11 +2,11 @@ import {
   type ChatInputCommandInteraction,
   SlashCommandBuilder,
   PermissionFlagsBits,
+  type TextChannel,
 } from "discord.js";
-import { buildPurchasePanel } from "../embeds.js";
+import { buildPurchasePanel, buildErrorEmbed } from "../embeds.js";
 import { getGamePassInfo } from "../roblox.js";
 import { config } from "../config.js";
-import { buildErrorEmbed } from "../embeds.js";
 
 export const setupCommand = {
   data: new SlashCommandBuilder()
@@ -20,16 +20,19 @@ export const setupCommand = {
     const gpInfo = await getGamePassInfo(config.robloxGamePassId);
     if (!gpInfo) {
       await interaction.editReply({
-        embeds: [buildErrorEmbed(
-          `Could not fetch game pass info for ID **${config.robloxGamePassId}**.\n` +
-          `Please verify the \`ROBLOX_GAME_PASS_ID\` environment variable is correct.`
-        )],
+        embeds: [
+          buildErrorEmbed(
+            `Could not fetch game pass info for ID **${config.robloxGamePassId}**.\n` +
+              `Please verify the \`ROBLOX_GAME_PASS_ID\` environment variable is correct.`
+          ),
+        ],
       });
       return;
     }
 
+    const channel = interaction.channel as TextChannel;
     const { embeds, components } = buildPurchasePanel(gpInfo.name, gpInfo.price);
-    await interaction.channel!.send({ embeds, components });
+    await channel.send({ embeds, components });
     await interaction.editReply({ content: "✅ Purchase panel posted successfully!" });
   },
 };
