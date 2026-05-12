@@ -2,6 +2,7 @@ import {
   type Interaction,
   type ButtonInteraction,
   type ModalSubmitInteraction,
+  type StringSelectMenuInteraction,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
@@ -19,13 +20,15 @@ import {
   buildErrorEmbed,
 } from "./embeds.js";
 import { startVerificationPolling } from "./ticketTracker.js";
-import { getGuildGamePassId } from "./guildConfig.js";
+import { getProductById } from "./products.js";
+import { setSession, updateSession, getSession, clearSession } from "./userSessions.js";
 import { config } from "./config.js";
 import { logger } from "../lib/logger.js";
 
 export async function handleInteraction(interaction: Interaction): Promise<void> {
   try {
-    if (interaction.isButton()) await handleButton(interaction);
+    if (interaction.isStringSelectMenu()) await handleSelectMenu(interaction);
+    else if (interaction.isButton()) await handleButton(interaction);
     else if (interaction.isModalSubmit()) await handleModal(interaction);
   } catch (err) {
     logger.error({ err }, "Error handling interaction");
@@ -50,43 +53,66 @@ function buildUsernameModal(): ModalBuilder {
   return modal;
 }
 
+// ── Select menu ──────────────────────────────────────────────────────────────
+
+async function handleSelectMenu(interaction: StringSelectMenuInteraction<CacheType>): Promise<void> {
+  if (interaction.customId !== "product_select") return;
+
+  const productId = interaction.values[0];
+  if (!productId) return;
+
+  const product = getProductById(productId);
+  if (!product) {
+    await interaction.reply({ embeds: [buildErrorEmbed("Unknown product selected.")], ephemeral: true });
+    return;
+  }
+
+  if (!product.gamePassId) {
+    await interaction.reply({
+      embeds: [buildErrorEmbed(`The **${product.name}** game pass is not configured yet. Please contact an admin.`)],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  // Save product choice to session, then open username modal
+  setSession(interaction.user.id, { productId });
+  await interaction.showModal(buildUsernameModal());
+}
+
+// ── Buttons ───────────────────────────────────────────────────────────────────
+
 async function handleButton(interaction: ButtonInteraction<CacheType>): Promise<void> {
   const { customId } = interaction;
 
-  // Open username modal
-  if (customId === "purchase_start" || customId === "cancel_user") {
+  // Retry username (after not-found)
+  if (customId === "retry_username" || customId === "cancel_user") {
+    // Keep existing session (product already saved)
     await interaction.showModal(buildUsernameModal());
     return;
   }
 
-  // Confirm Roblox user → create ticket
-  if (customId.startsWith("confirm_user_")) {
+  // Confirm Roblox account → create ticket channel
+  if (customId === "confirm_user") {
     await interaction.deferReply({ ephemeral: true });
 
-    const parts = customId.split("_");
-    // format: confirm_user_<userId>_<username>
-    const robloxUserId = parseInt(parts[2]!, 10);
-    const robloxUsername = parts.slice(3).join("_");
+    const session = getSession(interaction.user.id);
+    if (!session?.productId || !session.robloxUser) {
+      await interaction.editReply({
+        embeds: [buildErrorEmbed("Session expired. Please start again by selecting a product.")],
+      });
+      return;
+    }
+
+    const product = getProductById(session.productId);
+    if (!product) {
+      await interaction.editReply({ embeds: [buildErrorEmbed("Product not found. Please start again.")] });
+      return;
+    }
 
     const guild = interaction.guild;
     if (!guild) {
       await interaction.editReply({ embeds: [buildErrorEmbed("This can only be used inside a server.")] });
-      return;
-    }
-
-    const gamePassId = getGuildGamePassId(guild.id);
-    if (!gamePassId) {
-      await interaction.editReply({
-        embeds: [buildErrorEmbed("No game pass configured. An admin must run `/setup gamepassid:<id>` first.")],
-      });
-      return;
-    }
-
-    const robloxUser = await getRobloxUserByUsername(robloxUsername);
-    if (!robloxUser || robloxUser.id !== robloxUserId) {
-      await interaction.editReply({
-        embeds: [buildErrorEmbed("Could not fetch Roblox user data. Please try again.")],
-      });
       return;
     }
 
@@ -137,20 +163,22 @@ async function handleButton(interaction: ButtonInteraction<CacheType>): Promise<
     } catch (err) {
       logger.error({ err }, "Failed to create ticket channel");
       await interaction.editReply({
-        embeds: [buildErrorEmbed("Failed to create ticket channel. Check that the bot has Manage Channels permission.")],
+        embeds: [buildErrorEmbed("Failed to create ticket channel. Check the bot has **Manage Channels** permission.")],
       });
       return;
     }
 
     await interaction.editReply({ content: `✅ Your ticket has been created: <#${ticketChannel.id}>` });
 
-    const gpInfo = await getGamePassInfo(gamePassId);
-    const gpName = gpInfo?.name ?? "Game Pass";
+    const gpInfo = await getGamePassInfo(product.gamePassId);
+    const gpName = gpInfo?.name ?? product.name;
     const gpPrice = gpInfo?.price ?? 0;
+
+    const { robloxUser } = session;
 
     await ticketChannel.send({
       content: `<@${interaction.user.id}>`,
-      embeds: [buildPurchaseInstructionsEmbed(interaction.user.id, robloxUser, gpName, gpPrice, gamePassId)],
+      embeds: [buildPurchaseInstructionsEmbed(interaction.user.id, robloxUser, product, gpName, gpPrice)],
     });
 
     startVerificationPolling(
@@ -158,21 +186,44 @@ async function handleButton(interaction: ButtonInteraction<CacheType>): Promise<
       ticketChannel,
       robloxUser,
       interaction.user.id,
-      gamePassId,
+      product,
       gpName
     );
 
+    clearSession(interaction.user.id);
+
     logger.info(
-      { discordUser: interaction.user.tag, robloxUser: robloxUser.name, channelId: ticketChannel.id, gamePassId },
-      "Ticket created and verification polling started"
+      {
+        discordUser: interaction.user.tag,
+        robloxUser: robloxUser.name,
+        product: product.id,
+        channelId: ticketChannel.id,
+      },
+      "Ticket created, verification polling started"
     );
   }
 }
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
 
 async function handleModal(interaction: ModalSubmitInteraction<CacheType>): Promise<void> {
   if (interaction.customId !== "roblox_username_modal") return;
 
   await interaction.deferReply({ ephemeral: true });
+
+  const session = getSession(interaction.user.id);
+  if (!session?.productId) {
+    await interaction.editReply({
+      embeds: [buildErrorEmbed("Session expired. Please start again by selecting a product.")],
+    });
+    return;
+  }
+
+  const product = getProductById(session.productId);
+  if (!product) {
+    await interaction.editReply({ embeds: [buildErrorEmbed("Product not found. Please start again.")] });
+    return;
+  }
 
   const username = interaction.fields.getTextInputValue("roblox_username").trim();
   const robloxUser = await getRobloxUserByUsername(username);
@@ -183,6 +234,9 @@ async function handleModal(interaction: ModalSubmitInteraction<CacheType>): Prom
     return;
   }
 
-  const { embeds, components } = buildAvatarConfirmEmbed(robloxUser);
+  // Save Roblox user to session for the confirm step
+  updateSession(interaction.user.id, { robloxUser });
+
+  const { embeds, components } = buildAvatarConfirmEmbed(robloxUser, product.name);
   await interaction.editReply({ embeds, components });
 }

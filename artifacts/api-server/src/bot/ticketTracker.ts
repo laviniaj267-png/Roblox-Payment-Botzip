@@ -2,6 +2,7 @@ import type { TextChannel, Client } from "discord.js";
 import { checkGamePassOwnership } from "./roblox.js";
 import { buildVerificationSuccessEmbed } from "./embeds.js";
 import type { RobloxUser } from "./roblox.js";
+import type { Product } from "./products.js";
 import { logger } from "../lib/logger.js";
 
 const MAX_ATTEMPTS = 40; // ~20 minutes at 30s intervals
@@ -11,7 +12,7 @@ interface PendingTicket {
   robloxUser: RobloxUser;
   channel: TextChannel;
   discordUserId: string;
-  gamePassId: string;
+  product: Product;
   gamePassName: string;
   intervalId: ReturnType<typeof setInterval>;
 }
@@ -23,12 +24,11 @@ export function startVerificationPolling(
   channel: TextChannel,
   robloxUser: RobloxUser,
   discordUserId: string,
-  gamePassId: string,
+  product: Product,
   gamePassName: string
 ): void {
   const key = `${channel.id}_${robloxUser.id}`;
 
-  // Clear any existing poll for this ticket
   const existing = pendingTickets.get(key);
   if (existing) clearInterval(existing.intervalId);
 
@@ -37,7 +37,7 @@ export function startVerificationPolling(
   const intervalId = setInterval(async () => {
     attempts++;
     try {
-      const owns = await checkGamePassOwnership(robloxUser.id, gamePassId);
+      const owns = await checkGamePassOwnership(robloxUser.id, product.gamePassId);
 
       if (owns) {
         clearInterval(intervalId);
@@ -45,10 +45,10 @@ export function startVerificationPolling(
 
         await channel.send({
           content: `<@${discordUserId}>`,
-          embeds: [buildVerificationSuccessEmbed(discordUserId, robloxUser, gamePassName)],
+          embeds: [buildVerificationSuccessEmbed(discordUserId, robloxUser, product, gamePassName)],
         });
 
-        // Auto-close ticket after 60s
+        // Auto-close after 60s
         setTimeout(async () => {
           try {
             await channel.send("✅ This ticket will close in 10 seconds.");
@@ -58,7 +58,7 @@ export function startVerificationPolling(
           }
         }, 60_000);
 
-        logger.info({ robloxUserId: robloxUser.id, channelId: channel.id }, "Game pass ownership verified");
+        logger.info({ robloxUserId: robloxUser.id, channelId: channel.id, product: product.id }, "Game pass verified");
         return;
       }
 
@@ -79,7 +79,7 @@ export function startVerificationPolling(
     robloxUser,
     channel,
     discordUserId,
-    gamePassId,
+    product,
     gamePassName,
     intervalId,
   });

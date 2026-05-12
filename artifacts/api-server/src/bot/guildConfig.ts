@@ -1,13 +1,16 @@
 /**
- * In-memory per-guild configuration.
- * Stores the active game pass ID set via /setup.
+ * In-memory per-guild configuration set via /setup.
  */
-const guildGamePassIds = new Map<string, string>();
-
-export function setGuildGamePassId(guildId: string, gamePassId: string): void {
-  guildGamePassIds.set(guildId, gamePassId);
+interface GuildConfig {
+  customMessage: string;
 }
 
-export function getGuildGamePassId(guildId: string): string | undefined {
-  return guildGamePassIds.get(guildId);
+const guildConfigs = new Map<string, GuildConfig>();
+
+export function setGuildConfig(guildId: string, config: GuildConfig): void {
+  guildConfigs.set(guildId, config);
+}
+
+export function getGuildConfig(guildId: string): GuildConfig | undefined {
+  return guildConfigs.get(guildId);
 }

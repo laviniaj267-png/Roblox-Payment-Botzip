@@ -5,56 +5,51 @@ import {
   type TextChannel,
 } from "discord.js";
 import { buildPurchasePanel, buildErrorEmbed } from "../embeds.js";
-import { getGamePassInfo } from "../roblox.js";
-import { setGuildGamePassId } from "../guildConfig.js";
+import { getActiveProducts } from "../products.js";
+import { setGuildConfig } from "../guildConfig.js";
 
 export const setupCommand = {
   data: new SlashCommandBuilder()
     .setName("setup")
-    .setDescription("Post the purchase panel for a Roblox game pass")
+    .setDescription("Post the purchase panel in this channel")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption((opt) =>
       opt
-        .setName("gamepassid")
-        .setDescription("The numeric Roblox game pass ID (e.g. 12345678)")
+        .setName("message")
+        .setDescription("Custom message shown inside the purchase panel embed")
         .setRequired(true)
+        .setMaxLength(1000)
     ),
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     await interaction.deferReply({ ephemeral: true });
 
-    const gamePassId = interaction.options.getString("gamepassid", true).trim();
+    const customMessage = interaction.options.getString("message", true);
+    const products = getActiveProducts();
 
-    if (!/^\d+$/.test(gamePassId)) {
-      await interaction.editReply({
-        embeds: [buildErrorEmbed("Game pass ID must be numeric. You can find it in the game pass URL on Roblox.")],
-      });
-      return;
-    }
-
-    const gpInfo = await getGamePassInfo(gamePassId);
-    if (!gpInfo) {
+    if (products.length === 0) {
       await interaction.editReply({
         embeds: [
           buildErrorEmbed(
-            `Could not find a game pass with ID **${gamePassId}**.\n` +
-              `Please check the ID and make sure the game pass is public.`
+            "No products are configured yet.\n\n" +
+              "Set the `GAMEPASS_MAIN_HUB` environment variable to the Roblox game pass ID and restart the bot."
           ),
         ],
       });
       return;
     }
 
-    // Save the game pass ID for this guild
+    // Save guild config
     if (interaction.guildId) {
-      setGuildGamePassId(interaction.guildId, gamePassId);
+      setGuildConfig(interaction.guildId, { customMessage });
     }
 
     const channel = interaction.channel as TextChannel;
-    const { embeds, components } = buildPurchasePanel(gpInfo.name, gpInfo.price, gamePassId);
+    const { embeds, components } = buildPurchasePanel(customMessage, products);
     await channel.send({ embeds, components });
+
     await interaction.editReply({
-      content: `✅ Purchase panel posted for **${gpInfo.name}** (${gpInfo.price} Robux).`,
+      content: `✅ Purchase panel posted with **${products.length}** product(s).`,
     });
   },
 };
