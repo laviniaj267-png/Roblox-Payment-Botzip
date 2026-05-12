@@ -26,7 +26,7 @@ import {
 import { startVerificationPolling } from "./ticketTracker.js";
 import { getProductById } from "./productStore.js";
 import { setSession, updateSession, getSession, clearSession } from "./userSessions.js";
-import { hasActiveTicket, registerTicket, generateOrderId } from "./activeTickets.js";
+import { registerTicket, generateOrderId } from "./activeTickets.js";
 import { pendingWhitelists } from "./whitelistTracker.js";
 import { getGuildConfig } from "./serverConfig.js";
 import { isUniversalUser } from "./universalUsers.js";
@@ -125,16 +125,6 @@ async function handleButton(interaction: ButtonInteraction<CacheType>): Promise<
     }
 
     const { robloxUser } = session;
-
-    const existingChannelId = hasActiveTicket(robloxUser.id);
-    if (existingChannelId) {
-      await interaction.editReply({
-        content: `❌ Roblox account **${robloxUser.name}** already has an active ticket (<#${existingChannelId}>). Please wait for it to close first.`,
-        embeds: [],
-        components: [],
-      });
-      return;
-    }
 
     const guild = interaction.guild;
     if (!guild) {
