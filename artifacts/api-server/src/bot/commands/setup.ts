@@ -6,7 +6,7 @@ import {
 } from "discord.js";
 import { buildPurchasePanel, buildErrorEmbed } from "../embeds.js";
 import { getProducts } from "../productStore.js";
-import { setGuildConfig } from "../guildConfig.js";
+import { setGuildConfig } from "../serverConfig.js";
 
 export const setupCommand = {
   data: new SlashCommandBuilder()

@@ -1,17 +1,22 @@
-import type { TextChannel, Client } from "discord.js";
+import type { TextChannel, Client, Guild } from "discord.js";
 import { checkGamePassOwnership, getGamePassInfo } from "./roblox.js";
-import { buildVerificationSuccessEmbed, buildOrderConfirmedDmEmbed } from "./embeds.js";
+import {
+  buildVerificationSuccessEmbed,
+  buildOrderConfirmedDmEmbed,
+} from "./embeds.js";
 import type { RobloxUser } from "./roblox.js";
 import type { Product } from "./productStore.js";
 import { releaseTicket } from "./activeTickets.js";
+import { createWhitelistChannel } from "./whitelistTracker.js";
 import { logger } from "../lib/logger.js";
 
-const MAX_ATTEMPTS = 40; // ~20 minutes at 30s intervals
+const MAX_ATTEMPTS = 40;
 const POLL_INTERVAL_MS = 30_000;
 
 interface PendingTicket {
   robloxUser: RobloxUser;
   channel: TextChannel;
+  guild: Guild;
   discordUserId: string;
   product: Product;
   gamePassName: string;
@@ -25,6 +30,7 @@ const pendingTickets = new Map<string, PendingTicket>();
 export function startVerificationPolling(
   client: Client,
   channel: TextChannel,
+  guild: Guild,
   robloxUser: RobloxUser,
   discordUserId: string,
   product: Product,
@@ -49,44 +55,52 @@ export function startVerificationPolling(
         pendingTickets.delete(key);
         releaseTicket(robloxUser.id);
 
-        // Fetch latest price info for the DM
         const gpInfo = await getGamePassInfo(product.gamePassId);
         const finalPrice = gpInfo?.price ?? gamePassPrice;
 
-        // Send success embed in channel
+        // 1. Post success embed in ticket channel
         await channel.send({
           content: `<@${discordUserId}>`,
           embeds: [buildVerificationSuccessEmbed(discordUserId, robloxUser, product, gamePassName, orderId)],
         });
 
-        // DM the user their order confirmation
+        // 2. DM user with order confirmation
         try {
           const discordUser = await client.users.fetch(discordUserId);
           await discordUser.send({
             embeds: [buildOrderConfirmedDmEmbed(robloxUser, product, gamePassName, finalPrice, orderId)],
           });
         } catch {
-          // User may have DMs disabled — log and continue
-          logger.warn({ discordUserId }, "Could not DM user order confirmation (DMs may be disabled)");
+          logger.warn({ discordUserId }, "Could not DM user order confirmation (DMs disabled)");
           await channel.send(
             `⚠️ <@${discordUserId}> Could not send your confirmation DM — please enable DMs from server members. ` +
-              `Your Order ID is \`${orderId}\`.`
+              `Your Order ID: \`${orderId}\``
           );
         }
 
-        // Auto-close after 60s
+        // 3. Create whitelist channel for staff approval
+        await createWhitelistChannel(client, guild, {
+          discordUserId,
+          robloxUser,
+          product,
+          gamePassName,
+          orderId,
+          guildId: guild.id,
+        });
+
+        // 4. Auto-close ticket after 60s
         setTimeout(async () => {
           try {
             await channel.send("🔒 This ticket will close in 10 seconds.");
             setTimeout(() => channel.delete("Purchase verified — auto-closing").catch(() => {}), 10_000);
           } catch {
-            // Channel may already be gone
+            // already gone
           }
         }, 60_000);
 
         logger.info(
           { robloxUserId: robloxUser.id, channelId: channel.id, product: product.id, orderId },
-          "Game pass verified, order confirmed"
+          "Game pass verified, whitelist channel created"
         );
         return;
       }
@@ -97,7 +111,7 @@ export function startVerificationPolling(
         releaseTicket(robloxUser.id);
         await channel.send(
           `⏰ <@${discordUserId}> Verification timed out after 20 minutes.\n` +
-            `If you did purchase the game pass, please contact a staff member with your Order ID: \`${orderId}\`.`
+            `If you purchased the game pass, contact staff with Order ID: \`${orderId}\`.`
         );
       }
     } catch (err) {
@@ -108,6 +122,7 @@ export function startVerificationPolling(
   pendingTickets.set(key, {
     robloxUser,
     channel,
+    guild,
     discordUserId,
     product,
     gamePassName,

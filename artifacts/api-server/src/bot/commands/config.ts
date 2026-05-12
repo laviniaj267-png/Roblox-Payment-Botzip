@@ -5,7 +5,9 @@ import {
   PermissionFlagsBits,
 } from "discord.js";
 import { getProducts } from "../productStore.js";
+import { getGuildConfig } from "../serverConfig.js";
 import { config } from "../config.js";
+import { isUniversalUser } from "../universalUsers.js";
 
 export const configCommand = {
   data: new SlashCommandBuilder()
@@ -15,22 +17,30 @@ export const configCommand = {
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     const products = getProducts();
+    const guildCfg = getGuildConfig(interaction.guildId ?? "");
     const appId = interaction.client.user.id;
+    const isUniversal = isUniversalUser(interaction.user.id);
+
+    const roleInfo = [
+      `**Staff Role:** ${guildCfg.staffRoleId ? `<@&${guildCfg.staffRoleId}>` : "*(not set — use /stuff)*"}`,
+      `**Whitelist Role:** ${guildCfg.wsaUserRoleId ? `<@&${guildCfg.wsaUserRoleId}>` : "*(not set — use /whitelist)*"}`,
+      `**Blacklist Role:** ${guildCfg.blacklistRoleId ? `<@&${guildCfg.blacklistRoleId}>` : "*(not set — use /blacklist)*"}`,
+    ].join("\n");
 
     const lines = [
-      `**Guild ID:** \`${config.guildId || "*(global — not set)*"}\``,
-      `**Ticket Category:** \`${config.ticketCategoryId || "*(none — tickets go to root)*"}\``,
-      `**Products configured:** ${products.length}`,
       `**Application ID:** \`${appId}\``,
+      `**Guild ID:** \`${config.guildId || "*(global)*"}\``,
+      `**Products configured:** ${products.length}`,
+      `**Your access:** ${isUniversal ? "🌐 Universal User" : "Standard"}`,
       "",
-      "**Available Commands:**",
-      "`/setup message:<text>` — post purchase panel",
-      "`/add name:<n> gamepassid:<id>` — add product",
-      "`/remove name:<n>` — remove product",
-      "`/products` — list & verify all products",
-      "`/close` — close a ticket channel",
-      "`/invite` — get bot invite link",
-      "`/config` — this menu",
+      "**Role Configuration:**",
+      roleInfo,
+      "",
+      "**Slash Commands:**",
+      "`/setup` `/add` `/remove` `/products` `/close` `/stuff` `/whitelist` `/blacklist` `/invite` `/config`",
+      "",
+      "**Prefix Commands (`?`):**",
+      "`?ban` `?kick` `?mute` `?unmute` `?warn` `?grant` `?revoke` `?unban` `?addrole` `?serverinfo` `?userinfo` `?help`",
     ];
 
     await interaction.reply({

@@ -15,7 +15,7 @@ const SUCCESS_COLOR: ColorResolvable = 0x57f287;
 const WARNING_COLOR: ColorResolvable = 0xfee75c;
 const ERROR_COLOR: ColorResolvable = 0xed4245;
 
-// ── Purchase panel (main persistent embed) ────────────────────────────────────
+// ── Purchase panel ────────────────────────────────────────────────────────────
 
 export function buildPurchasePanel(
   customMessage: string,
@@ -23,10 +23,7 @@ export function buildPurchasePanel(
 ): { embeds: EmbedBuilder[]; components: ActionRowBuilder<StringSelectMenuBuilder>[] } {
   const embed = new EmbedBuilder()
     .setTitle("🛒 Purchase a Product")
-    .setDescription(
-      `${customMessage}\n\n` +
-        `Select a product from the dropdown below to begin the purchase verification process.`
-    )
+    .setDescription(`${customMessage}\n\nSelect a product from the dropdown below to begin.`)
     .setColor(BRAND_COLOR)
     .setFooter({ text: "Automated Roblox Purchase Verification" })
     .setTimestamp();
@@ -44,11 +41,10 @@ export function buildPurchasePanel(
       )
     );
 
-  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
-  return { embeds: [embed], components: [row] };
+  return { embeds: [embed], components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)] };
 }
 
-// ── Avatar confirmation (ephemeral, replaced after confirm) ───────────────────
+// ── Avatar confirmation ───────────────────────────────────────────────────────
 
 export function buildAvatarConfirmEmbed(user: RobloxUser, productName: string): {
   embeds: EmbedBuilder[];
@@ -68,16 +64,8 @@ export function buildAvatarConfirmEmbed(user: RobloxUser, productName: string): 
     .setFooter({ text: "Please confirm to continue" });
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId("confirm_user")
-      .setLabel("Yes, that's me")
-      .setStyle(ButtonStyle.Success)
-      .setEmoji("✅"),
-    new ButtonBuilder()
-      .setCustomId("cancel_user")
-      .setLabel("No, try again")
-      .setStyle(ButtonStyle.Danger)
-      .setEmoji("❌")
+    new ButtonBuilder().setCustomId("confirm_user").setLabel("Yes, that's me").setStyle(ButtonStyle.Success).setEmoji("✅"),
+    new ButtonBuilder().setCustomId("cancel_user").setLabel("No, try again").setStyle(ButtonStyle.Danger).setEmoji("❌")
   );
 
   return { embeds: [embed], components: [row] };
@@ -107,7 +95,7 @@ export function buildPurchaseInstructionsEmbed(
         `> **Price:** ${gamePassPrice} Robux\n` +
         `> **Roblox Account:** ${robloxUser.name}\n` +
         `> **Order ID:** \`${orderId}\`\n\n` +
-        `⏳ Watching for your purchase — this may take up to 2 minutes after buying.`
+        `⏳ Watching for your purchase — may take up to 2 minutes after buying.`
     )
     .setColor(BRAND_COLOR)
     .setThumbnail(robloxUser.avatarUrl)
@@ -115,44 +103,13 @@ export function buildPurchaseInstructionsEmbed(
     .setTimestamp();
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setLabel("🛒  Buy Game Pass")
-      .setStyle(ButtonStyle.Link)
-      .setURL(gamePassUrl)
+    new ButtonBuilder().setLabel("🛒  Buy Game Pass").setStyle(ButtonStyle.Link).setURL(gamePassUrl)
   );
 
   return { embeds: [embed], components: [row] };
 }
 
-// ── Order confirmed DM embed ───────────────────────────────────────────────────
-
-export function buildOrderConfirmedDmEmbed(
-  robloxUser: RobloxUser,
-  product: Product,
-  gamePassName: string,
-  gamePassPrice: number,
-  orderId: string
-): EmbedBuilder {
-  const gamePassUrl = `https://www.roblox.com/game-pass/${product.gamePassId}`;
-
-  return new EmbedBuilder()
-    .setTitle("✅ Order Confirmed!")
-    .setDescription(
-      `Your purchase has been verified. Thank you!\n\n` +
-        `**Order ID:** \`${orderId}\`\n\n` +
-        `**Product:** ${product.name}\n` +
-        `**Game Pass:** [${gamePassName}](${gamePassUrl})\n` +
-        `**Price:** ${gamePassPrice} Robux\n` +
-        `**Roblox Account:** ${robloxUser.name} *(ID: ${robloxUser.id})*\n\n` +
-        `Keep this message for your records. Enjoy your purchase! 🎮`
-    )
-    .setColor(SUCCESS_COLOR)
-    .setThumbnail(robloxUser.avatarUrl)
-    .setFooter({ text: `WSA HUB • ${orderId}` })
-    .setTimestamp();
-}
-
-// ── In-channel verification success ───────────────────────────────────────────
+// ── In-channel verification success ──────────────────────────────────────────
 
 export function buildVerificationSuccessEmbed(
   discordUserId: string,
@@ -169,21 +126,88 @@ export function buildVerificationSuccessEmbed(
         `**Product:** ${product.name}\n` +
         `**Game Pass:** ${gamePassName}\n` +
         `**Roblox Account:** ${robloxUser.name}\n\n` +
-        `A confirmation has been sent to your DMs. This ticket will close in 60 seconds.`
+        `A confirmation DM has been sent. A staff member will whitelist you shortly.`
     )
     .setColor(SUCCESS_COLOR)
     .setThumbnail(robloxUser.avatarUrl)
     .setTimestamp();
 }
 
-// ── Error & not-found ─────────────────────────────────────────────────────────
+// ── Order confirmed DM ────────────────────────────────────────────────────────
+
+export function buildOrderConfirmedDmEmbed(
+  robloxUser: RobloxUser,
+  product: Product,
+  gamePassName: string,
+  gamePassPrice: number,
+  orderId: string
+): EmbedBuilder {
+  const gamePassUrl = `https://www.roblox.com/game-pass/${product.gamePassId}`;
+  return new EmbedBuilder()
+    .setTitle("✅ Order Confirmed!")
+    .setDescription(
+      `Your purchase has been verified. A staff member will whitelist you shortly.\n\n` +
+        `**Order ID:** \`${orderId}\`\n\n` +
+        `**Product:** ${product.name}\n` +
+        `**Game Pass:** [${gamePassName}](${gamePassUrl})\n` +
+        `**Price:** ${gamePassPrice} Robux\n` +
+        `**Roblox Account:** ${robloxUser.name} *(ID: ${robloxUser.id})*\n\n` +
+        `Keep this message for your records. 🎮`
+    )
+    .setColor(SUCCESS_COLOR)
+    .setThumbnail(robloxUser.avatarUrl)
+    .setFooter({ text: `WSA HUB • ${orderId}` })
+    .setTimestamp();
+}
+
+// ── Whitelist approved DM ─────────────────────────────────────────────────────
+
+export function buildWhitelistApprovedDmEmbed(
+  robloxUser: RobloxUser,
+  product: Product,
+  orderId: string
+): EmbedBuilder {
+  return new EmbedBuilder()
+    .setTitle("🎉 You've Been Whitelisted!")
+    .setDescription(
+      `Congratulations! Your whitelist request has been approved.\n\n` +
+        `**Product:** ${product.name}\n` +
+        `**Roblox Account:** ${robloxUser.name}\n` +
+        `**Order ID:** \`${orderId}\`\n\n` +
+        `You now have access. Thank you for your purchase and welcome to WSA! 🚀`
+    )
+    .setColor(SUCCESS_COLOR)
+    .setThumbnail(robloxUser.avatarUrl)
+    .setFooter({ text: `WSA HUB • ${orderId}` })
+    .setTimestamp();
+}
+
+// ── Whitelist denied DM ───────────────────────────────────────────────────────
+
+export function buildWhitelistDeniedDmEmbed(
+  robloxUser: RobloxUser,
+  product: Product,
+  orderId: string
+): EmbedBuilder {
+  return new EmbedBuilder()
+    .setTitle("❌ Whitelist Not Approved")
+    .setDescription(
+      `We're sorry, but your whitelist request was not approved at this time.\n\n` +
+        `**Product:** ${product.name}\n` +
+        `**Roblox Account:** ${robloxUser.name}\n` +
+        `**Order ID:** \`${orderId}\`\n\n` +
+        `If you believe this is a mistake, please contact a staff member with your Order ID.`
+    )
+    .setColor(ERROR_COLOR)
+    .setThumbnail(robloxUser.avatarUrl)
+    .setFooter({ text: `WSA HUB • ${orderId}` })
+    .setTimestamp();
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function buildErrorEmbed(message: string): EmbedBuilder {
-  return new EmbedBuilder()
-    .setTitle("❌ Error")
-    .setDescription(message)
-    .setColor(ERROR_COLOR)
-    .setTimestamp();
+  return new EmbedBuilder().setTitle("❌ Error").setDescription(message).setColor(ERROR_COLOR).setTimestamp();
 }
 
 export function buildUserNotFoundEmbed(): {
@@ -192,18 +216,12 @@ export function buildUserNotFoundEmbed(): {
 } {
   const embed = new EmbedBuilder()
     .setTitle("❌ User Not Found")
-    .setDescription(
-      "We couldn't find a Roblox account with that username.\n\nPlease check the spelling and try again."
-    )
+    .setDescription("We couldn't find a Roblox account with that username.\n\nPlease check the spelling and try again.")
     .setColor(ERROR_COLOR)
     .setTimestamp();
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId("retry_username")
-      .setLabel("Try Again")
-      .setStyle(ButtonStyle.Primary)
-      .setEmoji("🔄")
+    new ButtonBuilder().setCustomId("retry_username").setLabel("Try Again").setStyle(ButtonStyle.Primary).setEmoji("🔄")
   );
 
   return { embeds: [embed], components: [row] };
