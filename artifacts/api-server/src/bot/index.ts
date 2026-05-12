@@ -8,17 +8,36 @@ import {
 } from "discord.js";
 import { validateConfig, config } from "./config.js";
 import { handleInteraction } from "./interactionHandler.js";
+import { loadProducts } from "./productStore.js";
 import { setupCommand } from "./commands/setup.js";
+import { addCommand } from "./commands/add.js";
+import { removeCommand } from "./commands/remove.js";
+import { productsCommand } from "./commands/products.js";
+import { closeCommand } from "./commands/close.js";
+import { configCommand } from "./commands/config.js";
+import { inviteCommand } from "./commands/invite.js";
 import { logger } from "../lib/logger.js";
+
+const allCommands = [
+  setupCommand,
+  addCommand,
+  removeCommand,
+  productsCommand,
+  closeCommand,
+  configCommand,
+  inviteCommand,
+];
+
+const commandMap = new Map(allCommands.map((c) => [c.data.name, c]));
 
 export async function startBot(): Promise<void> {
   validateConfig();
+  loadProducts();
 
   const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
   });
 
-  // Register slash commands
   const rest = new REST({ version: "10" }).setToken(config.discordToken);
 
   client.once(Events.ClientReady, async (readyClient) => {
@@ -30,25 +49,18 @@ export async function startBot(): Promise<void> {
     logger.info({ tag: readyClient.user.tag }, "Discord bot is ready");
     logger.info(`>>> INVITE URL: ${inviteUrl}`);
 
-    if (!config.guildId) {
-      logger.warn(
-        "DISCORD_GUILD_ID is not set — slash commands registered globally (may take up to 1 hour). " +
-        "Set DISCORD_GUILD_ID to your server ID for instant registration."
-      );
-    }
+    const commandPayload = allCommands.map((c) => c.data.toJSON());
 
     try {
-      const commands = [setupCommand.data.toJSON()];
-
       if (config.guildId) {
         await rest.put(
           Routes.applicationGuildCommands(appId, config.guildId),
-          { body: commands }
+          { body: commandPayload }
         );
-        logger.info({ guildId: config.guildId }, "Slash commands registered to guild (instant)");
+        logger.info({ guildId: config.guildId, count: commandPayload.length }, "Slash commands registered to guild (instant)");
       } else {
-        await rest.put(Routes.applicationCommands(appId), { body: commands });
-        logger.info("Slash commands registered globally");
+        await rest.put(Routes.applicationCommands(appId), { body: commandPayload });
+        logger.info({ count: commandPayload.length }, "Slash commands registered globally");
       }
     } catch (err) {
       logger.error({ err }, "Failed to register slash commands");
@@ -56,12 +68,13 @@ export async function startBot(): Promise<void> {
   });
 
   client.on(Events.InteractionCreate, async (interaction) => {
-    // Handle /setup command
-    if (interaction.isChatInputCommand() && interaction.commandName === "setup") {
-      await setupCommand.execute(interaction as ChatInputCommandInteraction);
-      return;
+    if (interaction.isChatInputCommand()) {
+      const command = commandMap.get(interaction.commandName);
+      if (command) {
+        await command.execute(interaction as ChatInputCommandInteraction);
+        return;
+      }
     }
-
     await handleInteraction(interaction);
   });
 

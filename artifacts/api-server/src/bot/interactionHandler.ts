@@ -20,7 +20,7 @@ import {
   buildErrorEmbed,
 } from "./embeds.js";
 import { startVerificationPolling } from "./ticketTracker.js";
-import { getProductById } from "./products.js";
+import { getProductById } from "./productStore.js";
 import { setSession, updateSession, getSession, clearSession } from "./userSessions.js";
 import { config } from "./config.js";
 import { logger } from "../lib/logger.js";
@@ -53,7 +53,7 @@ function buildUsernameModal(): ModalBuilder {
   return modal;
 }
 
-// ── Select menu ──────────────────────────────────────────────────────────────
+// ── Select menu ───────────────────────────────────────────────────────────────
 
 async function handleSelectMenu(interaction: StringSelectMenuInteraction<CacheType>): Promise<void> {
   if (interaction.customId !== "product_select") return;
@@ -69,13 +69,12 @@ async function handleSelectMenu(interaction: StringSelectMenuInteraction<CacheTy
 
   if (!product.gamePassId) {
     await interaction.reply({
-      embeds: [buildErrorEmbed(`The **${product.name}** game pass is not configured yet. Please contact an admin.`)],
+      embeds: [buildErrorEmbed(`**${product.name}** is not configured yet. Please contact an admin.`)],
       ephemeral: true,
     });
     return;
   }
 
-  // Save product choice to session, then open username modal
   setSession(interaction.user.id, { productId });
   await interaction.showModal(buildUsernameModal());
 }
@@ -85,14 +84,11 @@ async function handleSelectMenu(interaction: StringSelectMenuInteraction<CacheTy
 async function handleButton(interaction: ButtonInteraction<CacheType>): Promise<void> {
   const { customId } = interaction;
 
-  // Retry username (after not-found)
   if (customId === "retry_username" || customId === "cancel_user") {
-    // Keep existing session (product already saved)
     await interaction.showModal(buildUsernameModal());
     return;
   }
 
-  // Confirm Roblox account → create ticket channel
   if (customId === "confirm_user") {
     await interaction.deferReply({ ephemeral: true });
 
@@ -193,12 +189,7 @@ async function handleButton(interaction: ButtonInteraction<CacheType>): Promise<
     clearSession(interaction.user.id);
 
     logger.info(
-      {
-        discordUser: interaction.user.tag,
-        robloxUser: robloxUser.name,
-        product: product.id,
-        channelId: ticketChannel.id,
-      },
+      { discordUser: interaction.user.tag, robloxUser: robloxUser.name, product: product.id, channelId: ticketChannel.id },
       "Ticket created, verification polling started"
     );
   }
@@ -234,7 +225,6 @@ async function handleModal(interaction: ModalSubmitInteraction<CacheType>): Prom
     return;
   }
 
-  // Save Roblox user to session for the confirm step
   updateSession(interaction.user.id, { robloxUser });
 
   const { embeds, components } = buildAvatarConfirmEmbed(robloxUser, product.name);

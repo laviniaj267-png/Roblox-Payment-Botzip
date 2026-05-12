@@ -5,7 +5,7 @@ import {
   type TextChannel,
 } from "discord.js";
 import { buildPurchasePanel, buildErrorEmbed } from "../embeds.js";
-import { getActiveProducts } from "../products.js";
+import { getProducts } from "../productStore.js";
 import { setGuildConfig } from "../guildConfig.js";
 
 export const setupCommand = {
@@ -25,21 +25,19 @@ export const setupCommand = {
     await interaction.deferReply({ ephemeral: true });
 
     const customMessage = interaction.options.getString("message", true);
-    const products = getActiveProducts();
+    const products = getProducts();
 
     if (products.length === 0) {
       await interaction.editReply({
         embeds: [
           buildErrorEmbed(
-            "No products are configured yet.\n\n" +
-              "Set the `GAMEPASS_MAIN_HUB` environment variable to the Roblox game pass ID and restart the bot."
+            "No products configured yet.\n\nUse `/add name:<name> gamepassid:<id>` to add a product first."
           ),
         ],
       });
       return;
     }
 
-    // Save guild config
     if (interaction.guildId) {
       setGuildConfig(interaction.guildId, { customMessage });
     }

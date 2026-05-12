@@ -8,7 +8,7 @@ import {
   type ColorResolvable,
 } from "discord.js";
 import type { RobloxUser } from "./roblox.js";
-import type { Product } from "./products.js";
+import type { Product } from "./productStore.js";
 
 const BRAND_COLOR: ColorResolvable = 0x5865f2;
 const SUCCESS_COLOR: ColorResolvable = 0x57f287;

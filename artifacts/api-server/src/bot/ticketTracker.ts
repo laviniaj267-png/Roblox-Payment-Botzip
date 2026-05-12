@@ -2,7 +2,7 @@ import type { TextChannel, Client } from "discord.js";
 import { checkGamePassOwnership } from "./roblox.js";
 import { buildVerificationSuccessEmbed } from "./embeds.js";
 import type { RobloxUser } from "./roblox.js";
-import type { Product } from "./products.js";
+import type { Product } from "./productStore.js";
 import { logger } from "../lib/logger.js";
 
 const MAX_ATTEMPTS = 40; // ~20 minutes at 30s intervals
