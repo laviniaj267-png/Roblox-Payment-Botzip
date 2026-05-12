@@ -22,21 +22,32 @@ export async function startBot(): Promise<void> {
   const rest = new REST({ version: "10" }).setToken(config.discordToken);
 
   client.once(Events.ClientReady, async (readyClient) => {
+    const appId = readyClient.user.id;
+    const inviteUrl =
+      `https://discord.com/api/oauth2/authorize?client_id=${appId}` +
+      `&permissions=536938496&scope=bot%20applications.commands`;
+
     logger.info({ tag: readyClient.user.tag }, "Discord bot is ready");
+    logger.info(`>>> INVITE URL: ${inviteUrl}`);
+
+    if (!config.guildId) {
+      logger.warn(
+        "DISCORD_GUILD_ID is not set — slash commands registered globally (may take up to 1 hour). " +
+        "Set DISCORD_GUILD_ID to your server ID for instant registration."
+      );
+    }
 
     try {
       const commands = [setupCommand.data.toJSON()];
 
       if (config.guildId) {
-        // Register to specific guild (instant)
         await rest.put(
-          Routes.applicationGuildCommands(readyClient.user.id, config.guildId),
+          Routes.applicationGuildCommands(appId, config.guildId),
           { body: commands }
         );
-        logger.info({ guildId: config.guildId }, "Slash commands registered to guild");
+        logger.info({ guildId: config.guildId }, "Slash commands registered to guild (instant)");
       } else {
-        // Register globally (up to 1h propagation)
-        await rest.put(Routes.applicationCommands(readyClient.user.id), { body: commands });
+        await rest.put(Routes.applicationCommands(appId), { body: commands });
         logger.info("Slash commands registered globally");
       }
     } catch (err) {
