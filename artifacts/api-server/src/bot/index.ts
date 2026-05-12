@@ -19,6 +19,7 @@ import { closeCommand } from "./commands/close.js";
 import { configCommand } from "./commands/config.js";
 import { inviteCommand } from "./commands/invite.js";
 import { staffCommand, whitelistRoleCommand, blacklistRoleCommand } from "./commands/setroles.js";
+import { setStatusCommand } from "./commands/setstatus.js";
 import { logger } from "../lib/logger.js";
 
 const allCommands = [
@@ -32,6 +33,7 @@ const allCommands = [
   staffCommand,
   whitelistRoleCommand,
   blacklistRoleCommand,
+  setStatusCommand,
 ];
 
 const commandMap = new Map(allCommands.map((c) => [c.data.name, c]));

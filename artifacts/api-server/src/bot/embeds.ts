@@ -32,13 +32,14 @@ export function buildPurchasePanel(
     .setCustomId("product_select")
     .setPlaceholder("Choose a product...")
     .addOptions(
-      products.map((p) =>
-        new StringSelectMenuOptionBuilder()
+      products.map((p) => {
+        const opt = new StringSelectMenuOptionBuilder()
           .setLabel(p.name)
           .setValue(p.id)
-          .setDescription(p.description)
-          .setEmoji("🎮")
-      )
+          .setEmoji("🎮");
+        if (p.description) opt.setDescription(p.description.slice(0, 100));
+        return opt;
+      })
     );
 
   return { embeds: [embed], components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)] };
