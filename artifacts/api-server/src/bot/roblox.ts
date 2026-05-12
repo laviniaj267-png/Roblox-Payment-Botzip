@@ -56,8 +56,9 @@ export async function getGamePassInfo(gamePassId: string): Promise<{ name: strin
       `https://economy.roblox.com/v1/game-passes/${gamePassId}/game-pass-product-info`
     );
     if (!res.ok) return null;
-    const data = (await res.json()) as { Name: string; PriceInRobux: number };
-    return { name: data.Name, price: data.PriceInRobux };
+    const data = (await res.json()) as { Name?: string; PriceInRobux?: number; errors?: unknown[] };
+    if (Array.isArray(data.errors) || !data.Name) return null;
+    return { name: data.Name, price: data.PriceInRobux ?? 0 };
   } catch {
     return null;
   }

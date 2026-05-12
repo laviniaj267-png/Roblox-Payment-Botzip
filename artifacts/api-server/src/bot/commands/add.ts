@@ -65,21 +65,27 @@ export const addCommand = {
       return;
     }
 
-    const { product, gpName, gpPrice } = result;
+    const { product, gpName, gpPrice, apiVerified } = result;
     const gamePassUrl = `https://www.roblox.com/game-pass/${gamePassId}`;
+
+    const embedDescription = apiVerified
+      ? `**${product.name}** has been added to the purchase panel.\n\n` +
+        `**Roblox Game Pass:** [${gpName}](${gamePassUrl})\n` +
+        `**Price:** ${gpPrice} Robux\n` +
+        `**Game Pass ID:** \`${gamePassId}\`\n\n` +
+        `Run \`/setup\` to re-post the panel with the updated product list.`
+      : `**${product.name}** has been added to the purchase panel.\n\n` +
+        `**Game Pass ID:** \`${gamePassId}\`\n` +
+        `**Game Pass Link:** [Open on Roblox](${gamePassUrl})\n\n` +
+        `⚠️ The Roblox API could not verify this game pass right now — double-check the ID is correct.\n\n` +
+        `Run \`/setup\` to re-post the panel with the updated product list.`;
 
     await interaction.editReply({
       embeds: [
         new EmbedBuilder()
           .setTitle("✅ Product Added")
-          .setDescription(
-            `**${product.name}** has been added to the purchase panel.\n\n` +
-              `**Roblox Game Pass:** [${gpName}](${gamePassUrl})\n` +
-              `**Price:** ${gpPrice} Robux\n` +
-              `**Game Pass ID:** \`${gamePassId}\`\n\n` +
-              `Run \`/setup\` to re-post the panel with the updated product list.`
-          )
-          .setColor(0x57f287)
+          .setDescription(embedDescription)
+          .setColor(apiVerified ? 0x57f287 : 0xfee75c)
           .setTimestamp(),
       ],
     });

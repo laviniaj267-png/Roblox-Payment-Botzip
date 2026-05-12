@@ -65,7 +65,7 @@ export async function addProduct(
   name: string,
   gamePassId: string,
   description?: string
-): Promise<{ product: Product; gpName: string; gpPrice: number } | { error: string }> {
+): Promise<{ product: Product; gpName: string; gpPrice: number; apiVerified: boolean } | { error: string }> {
   if (products.find((p) => p.gamePassId === gamePassId)) {
     return { error: `A product with game pass ID **${gamePassId}** already exists.` };
   }
@@ -74,26 +74,19 @@ export async function addProduct(
   }
 
   const gpInfo = await getGamePassInfo(gamePassId);
-  if (!gpInfo) {
-    return {
-      error:
-        `Could not find a Roblox game pass with ID **${gamePassId}**.\n` +
-        `Make sure the ID is correct and the game pass is public.`,
-    };
-  }
 
   const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 32);
   const product: Product = {
     id: `${id}_${Date.now()}`,
     name,
     gamePassId,
-    description: description ?? gpInfo.name,
+    description: description ?? gpInfo?.name ?? name,
   };
 
   products.push(product);
   save();
 
-  return { product, gpName: gpInfo.name, gpPrice: gpInfo.price };
+  return { product, gpName: gpInfo?.name ?? name, gpPrice: gpInfo?.price ?? 0, apiVerified: gpInfo !== null };
 }
 
 export function removeProduct(id: string): Product | undefined {
