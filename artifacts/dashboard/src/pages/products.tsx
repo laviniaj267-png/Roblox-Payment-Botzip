@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useListProducts, useCreateProduct, useDeleteProduct, getListProductsQueryKey, getGetStatsQueryKey } from "@workspace/api-client-react";
+import {
+  useListProducts,
+  useCreateProduct,
+  useDeleteProduct,
+  getListProductsQueryKey,
+  getGetStatsQueryKey,
+} from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Plus, Box, ExternalLink } from "lucide-react";
+import { Trash2, Plus, Box, ExternalLink, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Products() {
@@ -21,6 +27,7 @@ export default function Products() {
   const [name, setName] = useState("");
   const [gamePassId, setGamePassId] = useState("");
   const [description, setDescription] = useState("");
+  const [formOpen, setFormOpen] = useState(true);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +44,7 @@ export default function Products() {
           queryClient.invalidateQueries({ queryKey: getGetStatsQueryKey() });
           toast({
             title: "Product added",
-            description: "The product has been successfully added to the database.",
+            description: "The product has been successfully added.",
           });
         },
         onError: () => {
@@ -76,124 +83,142 @@ export default function Products() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-4xl mx-auto">
         <div>
-          <h1 className="text-3xl font-bold uppercase tracking-tight text-primary">Products</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage game passes available for verification.</p>
+          <h1 className="text-2xl md:text-3xl font-bold uppercase tracking-tight text-primary">
+            Products
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Manage game passes available for verification.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4">
-            {isLoading ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-[120px] w-full bg-secondary" />
-                ))}
-              </div>
-            ) : products?.length === 0 ? (
-              <Card className="rounded-none border-border bg-card shadow-none">
-                <CardContent className="flex flex-col items-center justify-center p-12 text-muted-foreground">
-                  <Box className="h-12 w-12 mb-4 opacity-50" />
-                  <p className="uppercase tracking-widest text-sm">No products found</p>
-                </CardContent>
-              </Card>
-            ) : (
-              products?.map((product) => (
-                <Card key={product.id} className="rounded-none border-border bg-card shadow-none hover:border-primary/50 transition-colors group">
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-bold text-lg text-foreground uppercase tracking-wide">{product.name}</h3>
-                          <span className="text-xs bg-secondary text-primary px-2 py-1 uppercase tracking-widest font-mono">
-                            ID: {product.gamePassId}
-                          </span>
-                        </div>
-                        {product.description && (
-                          <p className="text-sm text-muted-foreground max-w-xl">{product.description}</p>
-                        )}
-                        <a 
-                          href={`https://www.roblox.com/game-pass/${product.gamePassId}`}
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline uppercase tracking-wider mt-2"
-                        >
-                          View on Roblox <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        className="rounded-none opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => handleDelete(product.id)}
-                        disabled={deleteProduct.isPending}
-                        data-testid={`button-delete-${product.id}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-
-          <div>
-            <Card className="rounded-none border-border bg-card shadow-none sticky top-8">
-              <CardHeader className="border-b border-border">
-                <CardTitle className="text-lg uppercase tracking-wide text-primary flex items-center gap-2">
-                  <Plus className="h-4 w-4" /> Add Product
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <form onSubmit={handleCreate} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name" className="text-xs uppercase tracking-widest text-muted-foreground">Product Name</Label>
-                    <Input
-                      id="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="rounded-none border-border focus-visible:ring-primary font-mono text-sm"
-                      placeholder="e.g. VIP Access"
-                      required
-                      data-testid="input-name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="gamePassId" className="text-xs uppercase tracking-widest text-muted-foreground">GamePass ID</Label>
-                    <Input
-                      id="gamePassId"
-                      value={gamePassId}
-                      onChange={(e) => setGamePassId(e.target.value)}
-                      className="rounded-none border-border focus-visible:ring-primary font-mono text-sm"
-                      placeholder="e.g. 12345678"
-                      required
-                      data-testid="input-gamePassId"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description" className="text-xs uppercase tracking-widest text-muted-foreground">Description (Optional)</Label>
-                    <Textarea
-                      id="description"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      className="rounded-none border-border focus-visible:ring-primary font-mono text-sm min-h-[100px]"
-                      placeholder="Details about this game pass..."
-                      data-testid="input-description"
-                    />
-                  </div>
-                  <Button 
-                    type="submit" 
+        <Card className="rounded-none border-border bg-card shadow-none">
+          <CardHeader
+            className="flex flex-row items-center justify-between space-y-0 border-b border-border cursor-pointer select-none"
+            onClick={() => setFormOpen((v) => !v)}
+          >
+            <CardTitle className="text-base uppercase tracking-wide text-primary flex items-center gap-2">
+              <Plus className="h-4 w-4" /> Add Product
+            </CardTitle>
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${formOpen ? "" : "-rotate-90"}`}
+            />
+          </CardHeader>
+          {formOpen && (
+            <CardContent className="p-4 md:p-6">
+              <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="text-xs uppercase tracking-widest text-muted-foreground">
+                    Product Name
+                  </Label>
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="rounded-none border-border focus-visible:ring-primary font-mono text-sm"
+                    placeholder="e.g. VIP Access"
+                    required
+                    data-testid="input-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="gamePassId" className="text-xs uppercase tracking-widest text-muted-foreground">
+                    GamePass ID
+                  </Label>
+                  <Input
+                    id="gamePassId"
+                    value={gamePassId}
+                    onChange={(e) => setGamePassId(e.target.value)}
+                    className="rounded-none border-border focus-visible:ring-primary font-mono text-sm"
+                    placeholder="e.g. 12345678"
+                    required
+                    data-testid="input-gamePassId"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="description" className="text-xs uppercase tracking-widest text-muted-foreground">
+                    Description (Optional)
+                  </Label>
+                  <Textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="rounded-none border-border focus-visible:ring-primary font-mono text-sm min-h-[80px]"
+                    placeholder="Details about this game pass..."
+                    data-testid="input-description"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Button
+                    type="submit"
                     className="w-full rounded-none font-bold uppercase tracking-widest"
                     disabled={createProduct.isPending || !name || !gamePassId}
                     data-testid="button-submit"
                   >
                     {createProduct.isPending ? "Adding..." : "Add Product"}
                   </Button>
-                </form>
+                </div>
+              </form>
+            </CardContent>
+          )}
+        </Card>
+
+        <div className="space-y-3">
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-[100px] w-full bg-secondary" />
+              ))}
+            </div>
+          ) : products?.length === 0 ? (
+            <Card className="rounded-none border-border bg-card shadow-none">
+              <CardContent className="flex flex-col items-center justify-center p-12 text-muted-foreground">
+                <Box className="h-12 w-12 mb-4 opacity-50" />
+                <p className="uppercase tracking-widest text-sm">No products found</p>
               </CardContent>
             </Card>
-          </div>
+          ) : (
+            products?.map((product) => (
+              <Card key={product.id} className="rounded-none border-border bg-card shadow-none hover:border-primary/50 transition-colors">
+                <CardContent className="p-4 md:p-6">
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="space-y-1.5 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-bold text-base text-foreground uppercase tracking-wide">
+                          {product.name}
+                        </h3>
+                        <span className="text-xs bg-secondary text-primary px-2 py-0.5 uppercase tracking-widest font-mono shrink-0">
+                          ID: {product.gamePassId}
+                        </span>
+                      </div>
+                      {product.description && (
+                        <p className="text-sm text-muted-foreground">{product.description}</p>
+                      )}
+                      <a
+                        href={`https://www.roblox.com/game-pass/${product.gamePassId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline uppercase tracking-wider"
+                      >
+                        View on Roblox <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="rounded-none shrink-0"
+                      onClick={() => handleDelete(product.id)}
+                      disabled={deleteProduct.isPending}
+                      data-testid={`button-delete-${product.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       </div>
     </Layout>
