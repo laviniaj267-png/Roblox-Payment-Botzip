@@ -22,6 +22,7 @@ import {
 import { startVerificationPolling } from "./ticketTracker.js";
 import { getProductById } from "./productStore.js";
 import { setSession, updateSession, getSession, clearSession } from "./userSessions.js";
+import { hasActiveTicket, registerTicket, generateOrderId } from "./activeTickets.js";
 import { config } from "./config.js";
 import { logger } from "../lib/logger.js";
 
@@ -84,37 +85,59 @@ async function handleSelectMenu(interaction: StringSelectMenuInteraction<CacheTy
 async function handleButton(interaction: ButtonInteraction<CacheType>): Promise<void> {
   const { customId } = interaction;
 
+  // Retry — just re-show the modal, updating the current message to clear it
   if (customId === "retry_username" || customId === "cancel_user") {
     await interaction.showModal(buildUsernameModal());
     return;
   }
 
+  // Confirm Roblox account → create ticket channel
   if (customId === "confirm_user") {
-    await interaction.deferReply({ ephemeral: true });
+    // Use deferUpdate so we REPLACE the avatar confirm message instead of stacking a new reply
+    await interaction.deferUpdate();
 
     const session = getSession(interaction.user.id);
     if (!session?.productId || !session.robloxUser) {
       await interaction.editReply({
-        embeds: [buildErrorEmbed("Session expired. Please start again by selecting a product.")],
+        content: "❌ Session expired. Please start again by selecting a product.",
+        embeds: [],
+        components: [],
       });
       return;
     }
 
     const product = getProductById(session.productId);
     if (!product) {
-      await interaction.editReply({ embeds: [buildErrorEmbed("Product not found. Please start again.")] });
+      await interaction.editReply({
+        content: "❌ Product not found. Please start again.",
+        embeds: [],
+        components: [],
+      });
+      return;
+    }
+
+    const { robloxUser } = session;
+
+    // Check if this Roblox user already has an active ticket
+    const existingChannelId = hasActiveTicket(robloxUser.id);
+    if (existingChannelId) {
+      await interaction.editReply({
+        content: `❌ The Roblox account **${robloxUser.name}** already has an active ticket (<#${existingChannelId}>). Please complete or wait for that ticket to close before starting a new one.`,
+        embeds: [],
+        components: [],
+      });
       return;
     }
 
     const guild = interaction.guild;
     if (!guild) {
-      await interaction.editReply({ embeds: [buildErrorEmbed("This can only be used inside a server.")] });
+      await interaction.editReply({ content: "❌ This can only be used inside a server.", embeds: [], components: [] });
       return;
     }
 
     const me = guild.members.me;
     if (!me) {
-      await interaction.editReply({ embeds: [buildErrorEmbed("Bot member not found in this server.")] });
+      await interaction.editReply({ content: "❌ Bot member not found in this server.", embeds: [], components: [] });
       return;
     }
 
@@ -159,22 +182,40 @@ async function handleButton(interaction: ButtonInteraction<CacheType>): Promise<
     } catch (err) {
       logger.error({ err }, "Failed to create ticket channel");
       await interaction.editReply({
-        embeds: [buildErrorEmbed("Failed to create ticket channel. Check the bot has **Manage Channels** permission.")],
+        content: "❌ Failed to create ticket channel. Check the bot has **Manage Channels** permission.",
+        embeds: [],
+        components: [],
       });
       return;
     }
 
-    await interaction.editReply({ content: `✅ Your ticket has been created: <#${ticketChannel.id}>` });
+    const orderId = generateOrderId();
+    registerTicket(robloxUser.id, ticketChannel.id);
+
+    // Replace the avatar confirm embed with a minimal success message (it disappears)
+    await interaction.editReply({
+      content: `✅ Your ticket has been created: <#${ticketChannel.id}>`,
+      embeds: [],
+      components: [],
+    });
 
     const gpInfo = await getGamePassInfo(product.gamePassId);
     const gpName = gpInfo?.name ?? product.name;
     const gpPrice = gpInfo?.price ?? 0;
 
-    const { robloxUser } = session;
+    const { embeds, components } = buildPurchaseInstructionsEmbed(
+      interaction.user.id,
+      robloxUser,
+      product,
+      gpName,
+      gpPrice,
+      orderId
+    );
 
     await ticketChannel.send({
       content: `<@${interaction.user.id}>`,
-      embeds: [buildPurchaseInstructionsEmbed(interaction.user.id, robloxUser, product, gpName, gpPrice)],
+      embeds,
+      components,
     });
 
     startVerificationPolling(
@@ -183,13 +224,21 @@ async function handleButton(interaction: ButtonInteraction<CacheType>): Promise<
       robloxUser,
       interaction.user.id,
       product,
-      gpName
+      gpName,
+      gpPrice,
+      orderId
     );
 
     clearSession(interaction.user.id);
 
     logger.info(
-      { discordUser: interaction.user.tag, robloxUser: robloxUser.name, product: product.id, channelId: ticketChannel.id },
+      {
+        discordUser: interaction.user.tag,
+        robloxUser: robloxUser.name,
+        product: product.id,
+        channelId: ticketChannel.id,
+        orderId,
+      },
       "Ticket created, verification polling started"
     );
   }

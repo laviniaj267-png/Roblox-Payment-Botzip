@@ -15,6 +15,8 @@ const SUCCESS_COLOR: ColorResolvable = 0x57f287;
 const WARNING_COLOR: ColorResolvable = 0xfee75c;
 const ERROR_COLOR: ColorResolvable = 0xed4245;
 
+// ── Purchase panel (main persistent embed) ────────────────────────────────────
+
 export function buildPurchasePanel(
   customMessage: string,
   products: Product[]
@@ -45,6 +47,8 @@ export function buildPurchasePanel(
   const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
   return { embeds: [embed], components: [row] };
 }
+
+// ── Avatar confirmation (ephemeral, replaced after confirm) ───────────────────
 
 export function buildAvatarConfirmEmbed(user: RobloxUser, productName: string): {
   embeds: EmbedBuilder[];
@@ -79,53 +83,100 @@ export function buildAvatarConfirmEmbed(user: RobloxUser, productName: string): 
   return { embeds: [embed], components: [row] };
 }
 
+// ── Ticket instructions (with big Buy button) ─────────────────────────────────
+
 export function buildPurchaseInstructionsEmbed(
   discordUserId: string,
   robloxUser: RobloxUser,
   product: Product,
   gamePassName: string,
-  gamePassPrice: number
+  gamePassPrice: number,
+  orderId: string
+): { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } {
+  const gamePassUrl = `https://www.roblox.com/game-pass/${product.gamePassId}`;
+
+  const embed = new EmbedBuilder()
+    .setTitle("📋 Purchase Instructions")
+    .setDescription(
+      `Hey <@${discordUserId}>, follow these steps to complete your purchase!\n\n` +
+        `**Step 1:** Click the **Buy Game Pass** button below and purchase it with Robux\n` +
+        `**Step 2:** Return here — the bot will automatically detect your purchase\n` +
+        `**Step 3:** You'll receive a confirmation DM with your order details\n\n` +
+        `> **Product:** ${product.name}\n` +
+        `> **Game Pass:** [${gamePassName}](${gamePassUrl})\n` +
+        `> **Price:** ${gamePassPrice} Robux\n` +
+        `> **Roblox Account:** ${robloxUser.name}\n` +
+        `> **Order ID:** \`${orderId}\`\n\n` +
+        `⏳ Watching for your purchase — this may take up to 2 minutes after buying.`
+    )
+    .setColor(BRAND_COLOR)
+    .setThumbnail(robloxUser.avatarUrl)
+    .setFooter({ text: `Verifying: ${robloxUser.name} • ${orderId}` })
+    .setTimestamp();
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setLabel("🛒  Buy Game Pass")
+      .setStyle(ButtonStyle.Link)
+      .setURL(gamePassUrl)
+  );
+
+  return { embeds: [embed], components: [row] };
+}
+
+// ── Order confirmed DM embed ───────────────────────────────────────────────────
+
+export function buildOrderConfirmedDmEmbed(
+  robloxUser: RobloxUser,
+  product: Product,
+  gamePassName: string,
+  gamePassPrice: number,
+  orderId: string
 ): EmbedBuilder {
   const gamePassUrl = `https://www.roblox.com/game-pass/${product.gamePassId}`;
 
   return new EmbedBuilder()
-    .setTitle("📋 Purchase Instructions")
+    .setTitle("✅ Order Confirmed!")
     .setDescription(
-      `Hey <@${discordUserId}>, follow these steps to complete your purchase!\n\n` +
-        `**Step 1:** Click the game pass link below and buy it with Robux\n` +
-        `**Step 2:** This bot will automatically detect your purchase\n` +
-        `**Step 3:** You'll receive a confirmation message here\n\n` +
-        `> **Product:** ${product.name}\n` +
-        `> **Game Pass:** [${gamePassName}](${gamePassUrl})\n` +
-        `> **Price:** ${gamePassPrice} Robux\n` +
-        `> **Roblox Account:** ${robloxUser.name}\n\n` +
-        `⏳ I'm watching for your purchase. This may take up to 2 minutes after buying.`
+      `Your purchase has been verified. Thank you!\n\n` +
+        `**Order ID:** \`${orderId}\`\n\n` +
+        `**Product:** ${product.name}\n` +
+        `**Game Pass:** [${gamePassName}](${gamePassUrl})\n` +
+        `**Price:** ${gamePassPrice} Robux\n` +
+        `**Roblox Account:** ${robloxUser.name} *(ID: ${robloxUser.id})*\n\n` +
+        `Keep this message for your records. Enjoy your purchase! 🎮`
     )
-    .setColor(BRAND_COLOR)
+    .setColor(SUCCESS_COLOR)
     .setThumbnail(robloxUser.avatarUrl)
-    .setFooter({ text: `Verifying: ${robloxUser.name} • Game Pass ID: ${product.gamePassId}` })
+    .setFooter({ text: `WSA HUB • ${orderId}` })
     .setTimestamp();
 }
+
+// ── In-channel verification success ───────────────────────────────────────────
 
 export function buildVerificationSuccessEmbed(
   discordUserId: string,
   robloxUser: RobloxUser,
   product: Product,
-  gamePassName: string
+  gamePassName: string,
+  orderId: string
 ): EmbedBuilder {
   return new EmbedBuilder()
     .setTitle("✅ Purchase Verified!")
     .setDescription(
-      `Congratulations <@${discordUserId}>! Your purchase has been verified.\n\n` +
+      `<@${discordUserId}> Your purchase has been verified!\n\n` +
+        `**Order ID:** \`${orderId}\`\n` +
         `**Product:** ${product.name}\n` +
         `**Game Pass:** ${gamePassName}\n` +
         `**Roblox Account:** ${robloxUser.name}\n\n` +
-        `You now have access. Enjoy! 🎮`
+        `A confirmation has been sent to your DMs. This ticket will close in 60 seconds.`
     )
     .setColor(SUCCESS_COLOR)
     .setThumbnail(robloxUser.avatarUrl)
     .setTimestamp();
 }
+
+// ── Error & not-found ─────────────────────────────────────────────────────────
 
 export function buildErrorEmbed(message: string): EmbedBuilder {
   return new EmbedBuilder()
