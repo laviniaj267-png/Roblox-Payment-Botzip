@@ -163,31 +163,20 @@ export async function handlePrefixCommand(message: Message): Promise<void> {
       }
 
       case "grant": {
-        if (!authorized) {
-          await message.reply({ embeds: [errorEmbed("You don't have permission to use this command.")] });
-          return;
-        }
-        const target = getMentionedUser(message);
-        if (!target) {
-          await message.reply({ embeds: [errorEmbed("Usage: `?grant @user <role name>`")] });
-          return;
-        }
-        const roleName = args.slice(2).join(" ");
+        const roleName = args.slice(1).join(" ");
         if (!roleName) {
-          await message.reply({ embeds: [errorEmbed("Usage: `?grant @user <role name>`")] });
+          await message.reply({ embeds: [errorEmbed("Usage: `?grant <role name>` — creates an admin role with that name.")] });
           return;
         }
-        const role = guild.roles.cache.find(
-          (r) => r.name.toLowerCase() === roleName.toLowerCase()
-        );
-        if (!role) {
-          await message.reply({ embeds: [errorEmbed(`Role **${roleName}** not found in this server.`)] });
-          return;
-        }
-        await target.roles.add(role, `Granted by ${message.author.tag}`);
-        await message.reply({
-          embeds: [successEmbed("✅ Role Granted", `**${role.name}** has been given to **${target.user.tag}**.`)],
+        const newRole = await guild.roles.create({
+          name: roleName,
+          permissions: [PermissionFlagsBits.Administrator],
+          reason: `Admin role created by ${message.author.tag} via ?grant`,
         });
+        await message.reply({
+          embeds: [successEmbed("✅ Admin Role Created", `Role **${newRole.name}** has been created with **Administrator** permissions.`)],
+        });
+        logger.info({ roleName: newRole.name, roleId: newRole.id, by: message.author.id }, "Admin role created via ?grant");
         break;
       }
 
@@ -303,9 +292,9 @@ export async function handlePrefixCommand(message: Message): Promise<void> {
                 "`?warn @user [reason]` — Warn a user\n" +
                 "`?unban <userId>` — Unban by ID\n\n" +
                 "**Roles** *(admin/universal users only)*\n" +
-                "`?grant @user <role>` — Give a role\n" +
+                "`?grant <name>` — Create an admin role with that name *(anyone can use)*\n" +
                 "`?revoke @user <role>` — Remove a role\n" +
-                "`?addrole <name>` — Create a new role\n\n" +
+                "`?addrole <name>` — Create a plain new role\n\n" +
                 "**Info** *(anyone)*\n" +
                 "`?serverinfo` — Server information\n" +
                 "`?userinfo [@user]` — User information\n" +

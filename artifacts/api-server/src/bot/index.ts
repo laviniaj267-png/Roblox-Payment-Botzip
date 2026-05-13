@@ -22,6 +22,7 @@ import { inviteCommand } from "./commands/invite.js";
 import { staffCommand, whitelistRoleCommand, blacklistRoleCommand, robloxVerifiedRoleCommand } from "./commands/setroles.js";
 import { setStatusCommand } from "./commands/setstatus.js";
 import { setLogsCommand } from "./commands/setlogs.js";
+import { setBioCommand } from "./commands/setbio.js";
 import { logger } from "../lib/logger.js";
 
 const allCommands = [
@@ -38,6 +39,7 @@ const allCommands = [
   robloxVerifiedRoleCommand,
   setStatusCommand,
   setLogsCommand,
+  setBioCommand,
 ];
 
 const commandMap = new Map(allCommands.map((c) => [c.data.name, c]));
