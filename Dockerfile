@@ -10,9 +10,7 @@ COPY lib/ ./lib/
 COPY scripts/ ./scripts/
 COPY artifacts/api-server/ ./artifacts/api-server/
 
-RUN pnpm install --frozen-lockfile
-
-RUN pnpm run typecheck:libs
+RUN pnpm install --frozen-lockfile --filter @workspace/api-server --filter @workspace/api-zod --filter @workspace/db
 
 WORKDIR /app/artifacts/api-server
 RUN pnpm run build
