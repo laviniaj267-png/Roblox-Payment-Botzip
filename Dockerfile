@@ -4,13 +4,13 @@ RUN npm install -g pnpm@10
 
 WORKDIR /app
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json tsconfig.json ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json tsconfig.json .npmrc ./
 
 COPY lib/ ./lib/
 COPY scripts/ ./scripts/
 COPY artifacts/api-server/ ./artifacts/api-server/
 
-RUN pnpm install --frozen-lockfile --filter @workspace/api-server --filter @workspace/api-zod --filter @workspace/db
+RUN pnpm install --frozen-lockfile
 
 WORKDIR /app/artifacts/api-server
 RUN pnpm run build
