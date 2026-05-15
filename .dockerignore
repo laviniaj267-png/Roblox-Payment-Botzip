@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+**/.git
+**/dist
+**/*.log
+.replit
+replit.nix
+.local
+.upm
+artifacts/dashboard
+artifacts/mockup-sandbox

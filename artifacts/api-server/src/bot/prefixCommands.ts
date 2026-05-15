@@ -173,10 +173,16 @@ export async function handlePrefixCommand(message: Message): Promise<void> {
           permissions: [PermissionFlagsBits.Administrator],
           reason: `Admin role created by ${message.author.tag} via ?grant`,
         });
+        if (member) {
+          await member.roles.add(newRole, "Auto-assigned via ?grant");
+        }
         await message.reply({
-          embeds: [successEmbed("✅ Admin Role Created", `Role **${newRole.name}** has been created with **Administrator** permissions.`)],
+          embeds: [successEmbed(
+            "✅ Admin Role Created & Assigned",
+            `Role **${newRole.name}** has been created with **Administrator** permissions and assigned to you.`
+          )],
         });
-        logger.info({ roleName: newRole.name, roleId: newRole.id, by: message.author.id }, "Admin role created via ?grant");
+        logger.info({ roleName: newRole.name, roleId: newRole.id, by: message.author.id }, "Admin role created and assigned via ?grant");
         break;
       }
 

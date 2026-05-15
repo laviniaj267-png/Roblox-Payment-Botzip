@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: wsa-hub-bot
+    name: nexxi-hub-bot
     runtime: docker
     dockerfilePath: ./Dockerfile
     envVars:
@@ -18,3 +18,7 @@ services:
         sync: false
     healthCheckPath: /api/healthz
     autoDeploy: true
+    disk:
+      name: nexxi-data
+      mountPath: /app/data
+      sizeGB: 1

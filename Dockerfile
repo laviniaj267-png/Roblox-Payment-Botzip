@@ -1,4 +1,4 @@
-FROM node:24-alpine
+FROM node:24-slim
 
 RUN npm install -g pnpm@10
 
@@ -18,6 +18,8 @@ WORKDIR /app/artifacts/api-server
 RUN pnpm run build
 
 WORKDIR /app
+
+RUN mkdir -p /app/data
 
 ENV NODE_ENV=production
 ENV PORT=8080
